@@ -1,3 +1,6 @@
+from absl import app
+from absl import flags
+
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray, ArrayLike
@@ -102,7 +105,6 @@ def simulate_point_process(
         spp_var_noise: The variance, across experiments, of the power measure of the noise (no signal)
         spp_var_signal: The variance, across experiments, of the power measure of the signal
     """
-    # num_experiments = 1000
     spc_dprimes = np.zeros((len(signal_levels), len(correlation_trial_count_list)))  # Single Point Correlation d'
     spp_dprimes = spc_dprimes.copy()  # Single Point Power d'
     spf_dprimes = spc_dprimes.copy()  # Full covariacne d'
@@ -180,74 +182,564 @@ def simulate_point_process(
             spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal)
 
 
-# Just do the highest signal level, and the highest trial count,
-# to make sure the code works.
+def run_simulations(cache_filename: str = 'simulation_cache.npz'):
+  """Run the simulations and plot the results.
+  """
+  if os.path.exists(cache_filename):
+    print(f'Loading simulation results from {cache_filename}')
+    data = np.load(cache_filename)
+    spc_dprimes = data['spc_dprimes']
+    spf_dprimes = data['spf_dprimes']
+    spp_dprimes = data['spp_dprimes']
+    spc_mean_noise = data['spc_mean_noise']
+    spc_mean_signal = data['spc_mean_signal']
+    spc_var_noise = data['spc_var_noise']
+    spc_var_signal = data['spc_var_signal']
+    spp_mean_noise = data['spp_mean_noise']
+    spp_mean_signal = data['spp_mean_signal']
+    spp_var_noise = data['spp_var_noise']
+    spp_var_signal = data['spp_var_signal']
+    spf_mean_noise = data['spf_mean_noise']
+    spf_mean_signal = data['spf_mean_signal']
+    spf_var_noise = data['spf_var_noise']
+    spf_var_signal = data['spf_var_signal']
+    print('Loaded simulation results.')
+  else:
+    # Just do the highest signal level, and the highest trial count,
+    # to make sure the code works.
 
-# spc is single point correlation
-# spf is single point full correlation
-# spp is single point power metric
-# spjk is single point correlation via jackknife
+    # spc is single point correlation
+    # spf is single point full correlation
+    # spp is single point power metric
+    # spjk is single point correlation via jackknife
 
-(spc_dprimes, spf_dprimes, spp_dprimes,
- spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
- spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
- spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal
- ) = simulate_point_process(n=default_noise_level, num_experiments=20,
-                            signal_levels=signal_levels[-1:],
-                            correlation_trial_count_list=correlation_trial_count_list[-1:])
+    (spc_dprimes, spf_dprimes, spp_dprimes,
+    spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
+    spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
+    spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal
+    ) = simulate_point_process(n=default_noise_level, num_experiments=20,
+                                signal_levels=signal_levels[-1:],
+                                correlation_trial_count_list=correlation_trial_count_list[-1:])
+    print('Saving simulation results to', cache_filename)
+    np.savez(cache_filename,
+             spc_dprimes=spc_dprimes,
+             spf_dprimes=spf_dprimes,
+             spp_dprimes=spp_dprimes,
+             spc_mean_noise=spc_mean_noise,
+             spc_mean_signal=spc_mean_signal,
+             spc_var_noise=spc_var_noise,
+             spc_var_signal=spc_var_signal,
+             spp_mean_noise=spp_mean_noise,
+             spp_mean_signal=spp_mean_signal,
+             spp_var_noise=spp_var_noise,
+             spp_var_signal=spp_var_signal,
+             spf_mean_noise=spf_mean_noise,
+             spf_mean_signal=spf_mean_signal,
+             spf_var_noise=spf_var_noise,
+             spf_var_signal=spf_var_signal
+             )
+    print('Saved simulation results.')
+  return (spc_dprimes, spf_dprimes, spp_dprimes,
+          spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
+          spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
+          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal)
 
 
 
-# Now do the full simulation, across all signal levels and trial counts
+def compare_full_partial_correlation():
+  """Compare the full covariance and partial (matched filter) covariance distributions.
+  """
+  n=1.2
+  s = signal_levels[-1]
+  N = correlation_trial_count_list[-1]
+  K=20
 
-# spc is single point correlation
-# spf is single point full correlation
-# spp is single point power metric
-# spjk is single point correlation via jackknife
+  w = s + n * np.random.randn(N, K) # All the trial data
 
-(spc_dprimes, spf_dprimes, spp_dprimes,
- spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
- spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
- spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal
- ) = simulate_point_process(n=default_noise_level, num_experiments=20)
+  full_cov = np.zeros((N*N, K))
+  mf_cov = np.zeros((N, K))
+
+  for i in range(K): # Iterate over experiments
+    prod = w[:, i:i+1] * w[:, i:i+1].T
+    assert prod.shape == (N, N)
+    full_cov[:, i] = prod.reshape(N*N)
+
+    mf_prod = w[:, i] * np.mean(w[:, i], axis=0)
+    mf_cov[:, i] = mf_prod.reshape(N)
+
+  plt.figure(figsize=(4, 3))
+
+  bins = 50
+  counts, edges = np.histogram(full_cov.reshape(-1), bins=50)
+  counts = counts.astype(float) / np.max(counts)
+  plt.plot((edges[:-1]+edges[1:])/2, counts, label='Full Covariance')
+
+  counts, edges = np.histogram(mf_cov.reshape(-1), bins=50)
+  counts = counts.astype(float) / np.max(counts)
+  plt.plot((edges[:-1]+edges[1:])/2, counts, label='Partial Covariance')
+  plt.legend();
+  plt.xlim(-3, 30)
+  plt.title('Full vs. Partial Covariance Distributions')
+  plt.xlabel('Covariance')
+  plt.ylabel('Normalized Histogram');
+
+  print(f'Full mean: theory {s**2+n**2/N}, simulation {np.mean(full_cov.reshape(-1))}')
+  print(f'Full var: theory {4*s**2*n**2 + (N+1)*n**4/(N**2)}, simulation {np.var(full_cov.reshape(-1))}')
+  print(f'Full var2: theory {4*(s**2)*(n**2) + (N**2 - N + 2)*(n**4)/N**2}, simulation {np.var(full_cov.reshape(-1))}')
+  print(f'Partial mean: theory {s**2+n**2/N}, simulation {np.mean(mf_cov.reshape(-1))}')
+  print(f'Partial var: theory {(1+3/N)*s**2*n**2 + (N+1)*n**4/N**2}, simulation {np.var(mf_cov.reshape(-1))}')
+
+  plt.savefig('FullVsPartialCovariance.png', dpi=300)
 
 
-n=1.2
-s = signal_levels[-1]
-N = correlation_trial_count_list[-1]
-K=20
+######################## Single Point Power Metric Simulation ########################
 
-w = s + n * np.random.randn(N, K) # All the trial data
+# Single point power measures from the MMA notebook.
 
-full_cov = np.zeros((N*N, K))
-mf_cov = np.zeros((N, K))
+def spp_mean(s, n, N):
+  return s*s + n*n/N
 
-for i in range(K): # Iterate over experiments
-  prod = w[:, i:i+1] * w[:, i:i+1].T
-  assert prod.shape == (N, N)
-  full_cov[:, i] = prod.reshape(N*N)
+def spp_var(s, n, N):
+  return 4*s*s*n*n/N+2*n**4/N**2
 
-  mf_prod = w[:, i] * np.mean(w[:, i], axis=0)
-  mf_cov[:, i] = mf_prod.reshape(N)
+def spp_dprime(s, n, N):
+  N = np.asarray(N, dtype=float)
+  return 2*s/np.sqrt(2*s*s*n*n/N + 2*n**4/N**2)
 
-plt.figure(figsize=(4, 3))
+def spp_threshold(s, n, numtrials):
+  return ( numtrials )**( -1 ) * ( ( ( d )**( 2 ) * ( n )**( 2 ) * numtrials + \
+d * ( ( 2 + ( d )**( 2 ) ) )**( 1/2 ) * ( n )**( 2 ) * numtrials ) )**( \
+1/2 )
 
-bins = 50
-counts, edges = np.histogram(full_cov.reshape(-1), bins=50)
-counts = counts.astype(float) / np.max(counts)
-plt.plot((edges[:-1]+edges[1:])/2, counts, label='Full Correlation')
 
-counts, edges = np.histogram(mf_cov.reshape(-1), bins=50)
-counts = counts.astype(float) / np.max(counts)
-plt.plot((edges[:-1]+edges[1:])/2, counts, label='Partial Correlation')
-plt.legend();
-plt.xlim(-3, 30)
-plt.title('Full vs. Partial Correlation Distributions')
-plt.xlabel('Correlation')
-plt.ylabel('Normalized Histogram');
+def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes):
+  plt.figure(figsize=(16, 5))
 
-print(f'Full mean: theory {s**2+n**2/N}, simulation {np.mean(full_cov.reshape(-1))}')
-print(f'Full var: theory {4*s**2*n**2 + (N+1)*n**4/(N**2)}, simulation {np.var(full_cov.reshape(-1))}')
-print(f'Full var2: theory {4*(s**2)*(n**2) + (N**2 - N + 2)*(n**4)/N**2}, simulation {np.var(full_cov.reshape(-1))}')
-print(f'Partial mean: theory {s**2+n**2/N}, simulation {np.mean(mf_cov.reshape(-1))}')
-print(f'Partial var: theory {(1+3/N)*s**2*n**2 + (N+1)*n**4/N**2}, simulation {np.var(mf_cov.reshape(-1))}')
+  plt.subplot(3, 2, 1)
+  plt.plot(signal_levels, np.asarray(spp_mean_signal)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  n = default_noise_level # Implicit definition used in the code above
+  d = spp_d_threshold
+  N = correlation_trial_count_list[-1]
+  plt.plot(signal_levels, spp_mean(s, n, N), label='Theory')
+  plt.title(f'Power Stats for {N} trials')
+  plt.ylabel('Mean')
+  plt.legend()
+
+  plt.subplot(3, 2, 2);
+  plt.semilogx(correlation_trial_count_list, np.asarray(spp_mean_signal)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  n = default_noise_level # Implicit definition used in the code above
+  d = spp_d_threshold
+  N = correlation_trial_count_list
+  plt.semilogx(N, spp_mean(s, n, N), label='Theory')
+  plt.axhline(s*s, ls='--', label='Asymptote')
+  plt.title(f'Power Stats for Sound Level s={s:4.2f}');
+  plt.legend()
+
+  ##################### Now plot the Variances  #####################
+  plt.subplot(3, 2, 3)
+  plt.plot(signal_levels, np.asarray(spp_var_signal)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  n = default_noise_level # Implicit definition used in the code above
+  d = spp_d_threshold
+  N = correlation_trial_count_list[-1]
+  plt.plot(signal_levels, 4*s*s*n*n/N+2*n**4/N**2, label='Theory')
+  plt.ylabel('Variance')
+  plt.legend()
+
+  plt.subplot(3, 2, 4);
+  plt.semilogx(correlation_trial_count_list, np.asarray(spp_var_signal)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  n = default_noise_level # Implicit definition used in the code above
+  d = spp_d_threshold
+  N = correlation_trial_count_list
+  plt.semilogx(N, 4*s*s*n*n/N+2*n**4/N**2, label='Theory')
+  plt.legend()
+
+  ##################### Now plot the d's #####################
+  plt.subplot(3, 2, 5) # Plot by signal level
+  plt.plot(signal_levels, np.asarray(spp_dprimes)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  n = default_noise_level # Implicit definition used in the code above
+  d = spp_d_threshold
+  N = correlation_trial_count_list[-1]
+  dprimes = s*s/np.sqrt(2*s*s*n*n/N + 2*n**4/N**2)
+  plt.loglog(signal_levels, dprimes, label='Theory')
+  # plt.plot(signal_levels, np.sqrt(2)*s/n, ls=':', label='Asymptote')
+  plt.axhline(spp_d_threshold, ls=':', label='d\' Threshold')
+  plt.legend()
+  plt.xlabel('Sound Level')
+  plt.ylabel('d\'')
+
+  plt.subplot(3, 2, 6)  # Plot by trial count
+  plt.loglog(correlation_trial_count_list, np.asarray(spp_dprimes)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  n = default_noise_level  # Implicit definition used in the code above
+  d = spp_d_threshold
+  N = correlation_trial_count_list
+  dprimes = s*s/np.sqrt(2*s*s*n*n/N + 2*n**4/N**2)
+  plt.loglog(N, dprimes, label='Theory')
+  # plt.axhline(np.sqrt(2)*s/n, ls=':', label='Asymptote')
+  plt.legend();
+  plt.xlabel('Number of Trials');
+
+  plt.savefig('SinglePointPowerStats.png')
+
+
+######################## Single Point Covariance Metric Simulation ########################
+
+def spc_theory_mean(s, n, N):
+  return s*s + n*n/N
+
+def spc_theory_var(s, n, numtrials):
+  numtrials = np.asarray(numtrials, dtype=float)
+  return ( ( n )**( 4 ) * ( numtrials )**( -2 ) * ( 1 + numtrials ) + ( n )**( \
+2 ) * ( 1 + 3 * ( numtrials )**( -1 ) ) * ( s )**( 2 ) )
+
+def spc_theory_dprime(s, n, numtrials):
+  return ( 2 )**( 1/2 ) * numtrials * ( s )**( 2 ) * ( ( 2 * ( n )**( 4 ) * ( \
+1 + numtrials ) + ( n )**( 2 ) * numtrials * ( 3 + numtrials ) * ( s )**( \
+2 ) ) )**( -1/2 )
+
+
+def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes):
+  n = default_noise_level
+
+  plt.figure(figsize=(16, 5))
+
+  plt.subplot(3, 2, 1)
+  plt.plot(signal_levels, np.asarray(spc_mean_signal)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  d = spc_d_threshold
+  N = correlation_trial_count_list[-1]
+  plt.plot(signal_levels,
+          spc_theory_mean(signal_levels, default_noise_level, N),
+          label='Theory')
+  plt.title(f'Matched Filter Stats for {N} trials')
+  plt.ylabel('Mean')
+  plt.legend()
+
+  plt.subplot(3, 2, 2);
+  plt.semilogx(correlation_trial_count_list, np.asarray(spc_mean_signal)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  d = spc_d_threshold
+  N = correlation_trial_count_list
+  plt.semilogx(N, spc_theory_mean(s, n, N), label='Theory')
+  plt.axhline(s*s, ls='--', label='Asymptote')
+  plt.title(f'Matched Filter Stats for Sound Level s={s:4.2f}');
+  plt.legend()
+
+  ##################### Now plot the Variances  #####################
+  plt.subplot(3, 2, 3)
+  plt.plot(signal_levels, np.asarray(spc_var_signal)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  d = spc_d_threshold
+  N = correlation_trial_count_list[-1]
+  plt.plot(signal_levels, spc_theory_var(s, n, N), label='Theory')
+  plt.ylabel('Variance')
+  plt.legend()
+
+  plt.subplot(3, 2, 4);
+  plt.semilogx(correlation_trial_count_list, np.asarray(spc_var_signal)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  d = spc_d_threshold
+  N = correlation_trial_count_list
+  plt.semilogx(N, spc_theory_var(s, n, N), label='Theory')
+  plt.axhline(s*s*n*n, label='Asymptote')
+  plt.legend()
+
+  ##################### Now plot the d's #####################
+  plt.subplot(3, 2, 5) # Plot by signal level
+  plt.plot(signal_levels, np.asarray(spc_dprimes)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  n = default_noise_level  # Implicit definition used in the code above
+  d = spc_d_threshold
+  N = correlation_trial_count_list[-1]
+  # dprimes = np.sqrt(2)*N*s**2/n/np.sqrt(N**2*s**2 + 3*N*s**2 + 2*N*n**2 + 2*n**2)
+  dprimes = spc_theory_dprime(s, n, N)
+  plt.plot(signal_levels, dprimes, label='Theory')
+  # plt.plot(signal_levels, np.sqrt(2)*s/n, ls=':', label='Asymptote')
+  plt.axhline(spc_d_threshold, ls=':', label='d\' Threshold')
+  plt.legend()
+  plt.xlabel('Sound Level')
+  plt.ylabel('d\'')
+
+  plt.subplot(3, 2, 6)  # Plot by trial count
+  plt.semilogx(correlation_trial_count_list, np.asarray(spc_dprimes)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  n = default_noise_level  # Implicit definition used in the code above
+  d = spc_d_threshold
+  N = correlation_trial_count_list
+  # dprimes = np.sqrt(2)*N*s**2/n/np.sqrt(N**2*s**2 + 3*N*s**2 + 2*N*n**2 + 2*n**2)
+  dprimes = spc_theory_dprime(s, n, N)
+  plt.semilogx(N, dprimes, label='Theory')
+  plt.axhline(np.sqrt(2)*s/n, ls=':', label='Asymptote')
+  plt.legend();
+  plt.xlabel('Number of Trials');
+
+  plt.savefig('SinglePointMatchedFilterStats.png')
+
+######################## Single Point Full Covariance Metric Simulation ########################
+
+def spf_theory_mean(s, n, N):
+  return s*s + n*n/N
+
+def spf_theory_var(s, n, N):
+  N = np.asarray(N, dtype=float)  # Not used here except for the size
+  # return ( ( n )**( 4 ) * ( numtrials )**( -2 ) * ( 1 + numtrials ) + 4 * ( n )**( 2 ) * ( s )**( 2 ) )
+  # return 4*(s**2)*(n**2) + (numtrials**2 + 2*numtrials - 1)*(n**4)/numtrials**2
+  # Result below due to Gemini... not sure why yet.
+  # return 2*(s**2)*(n**2) + (N**2 + 2*N - 1)*(n**4)/N**2
+  return n**4 + 2*(s**2)*(n**2) * np.ones(N.shape)
+
+def spf_theory_dprime(s, n, N):
+  N = np.asarray(N, dtype=float)
+  # return numtrials * ( s )**( 2 ) * ( ( ( n )**( 4 ) * ( 1 + numtrials ) + 2 * ( n )**( 2 ) * ( numtrials )**( 2 ) * ( s )**( 2 ) ) )**( -1/2 )
+  return (spf_theory_mean(s, n, N) - spf_theory_mean(0, n, N))/(
+      np.sqrt((spf_theory_var(s, n, N) + spf_theory_var(0, n, N))/2))
+
+
+def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes):
+  n = default_noise_level
+
+  plt.figure(figsize=(16, 5))
+
+  plt.subplot(3, 2, 1)
+  plt.plot(signal_levels, np.asarray(spf_mean_signal)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  d = spf_d_threshold
+  N = correlation_trial_count_list[-1]
+  plt.plot(signal_levels,
+          spf_theory_mean(signal_levels, default_noise_level, N),
+          label='Theory')
+  plt.title(f'Full Covariance Stats for {N} trials')
+  plt.ylabel('Mean')
+  plt.legend()
+
+  plt.subplot(3, 2, 2);
+  plt.semilogx(correlation_trial_count_list, np.asarray(spf_mean_signal)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  d = spf_d_threshold
+  N = correlation_trial_count_list
+  plt.semilogx(N, spf_theory_mean(s, n, N), label='Theory')
+  plt.axhline(s*s, ls='--', label='Asymptote')
+  plt.title(f'Full Covariance Stats for Sound Level s={s:4.2f}');
+  plt.legend()
+
+  ##################### Now plot the Variances  #####################
+  plt.subplot(3, 2, 3)
+  plt.plot(signal_levels, np.asarray(spf_var_signal)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  d = spf_d_threshold
+  N = correlation_trial_count_list[-1]
+  plt.plot(signal_levels, spf_theory_var(s, n, N), label='Theory')
+  plt.ylabel('Variance')
+  plt.legend()
+
+  plt.subplot(3, 2, 4);
+  plt.semilogx(correlation_trial_count_list, np.asarray(spf_var_signal)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  d = spf_d_threshold
+  N = correlation_trial_count_list
+  plt.semilogx(N, spf_theory_var(s, n, N), label='Theory')
+  # plt.axhline(s*s*n*n, label='Asymptote')
+  plt.legend()
+
+  ##################### Now plot the d's #####################
+  plt.subplot(3, 2, 5) # Plot by signal level
+  plt.plot(signal_levels, np.asarray(spf_dprimes)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  n = default_noise_level  # Implicit definition used in the code above
+  d = spf_d_threshold
+  N = correlation_trial_count_list[-1]
+  dprimes = spf_theory_dprime(s, n, N)
+  plt.plot(signal_levels, dprimes, label='Theory')
+  # plt.plot(signal_levels, np.sqrt(2)*s/n, ls=':', label='Asymptote')
+  plt.axhline(spf_d_threshold, ls=':', label='d\' Threshold')
+  plt.legend()
+  plt.xlabel('Sound Level')
+  plt.ylabel('d\'')
+
+  plt.subplot(3, 2, 6)  # Plot by trial count
+  plt.semilogx(correlation_trial_count_list, np.asarray(spf_dprimes)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  n = default_noise_level  # Implicit definition used in the code above
+  d = spc_d_threshold
+  N = correlation_trial_count_list
+  dprimes = spf_theory_dprime(s, n, N)
+  plt.semilogx(N, dprimes, label='Theory')
+  # plt.axhline(np.sqrt(2)*s/n, ls=':', label='Asymptote')
+  plt.legend();
+  plt.xlabel('Number of Trials');
+
+  plt.savefig('SinglePointFullCovarianceStats.png')
+
+##################### Single Point Jackknife (SPJ Stats #####################
+# spj is single point correlation via jackknife
+
+def run_jackknife_simulations(cache_filename: str = 'simulation_jackknife_cache.npz'):
+  """Run the simulations and plot the results.
+  """
+  if os.path.exists(cache_filename):
+    print(f'Loading jackknife simulation results from {cache_filename}')
+    data = np.load(cache_filename)
+    spj_dprimes = data['spj_dprimes']
+    spj_mean_noise = data['spj_mean_noise']
+    spj_mean_signal = data['spj_mean_signal']
+    spj_var_noise = data['spj_var_noise']
+    spj_var_signal = data['spj_var_signal']
+    print('Loaded jackknife simulation results.')
+  else:
+    # Just do the highest signal level, and the highest trial count,
+    # to make sure the code works.
+
+    # spc is single point correlation
+    # spf is single point full correlation
+    # spp is single point power metric
+    # spjk is single point correlation via jackknife
+
+    (spj_dprimes, 
+    spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
+    ) = simulate_point_process(n=default_noise_level, num_experiments=20,
+                                signal_levels=signal_levels[-1:],
+                                jackknife=True,
+                                correlation_trial_count_list=correlation_trial_count_list[-1:])
+    print('Saving simulation results to', cache_filename)
+    np.savez(cache_filename,
+             spj_dprimes=spj_dprimes,
+             spj_mean_noise=spj_mean_noise,
+             spj_mean_signal=spj_mean_signal,
+             spj_var_noise=spj_var_noise,
+             spj_var_signal=spj_var_signal,
+             )
+    print('Saved simulation results.')
+  return (spj_dprimes,
+          spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
+          )
+
+
+def spj_theory_mean(s, n, N):
+  return s*s
+
+def spj_theory_var(s, n, numtrials):
+  numtrials = np.asarray(numtrials, dtype=float)
+  return ( ( n )**( 4 ) * ( ( -1 + numtrials ) )**( -1 ) + ( n )**( 2 ) * ( 1 + \
+( ( -1 + numtrials ) )**( -1 ) ) * ( s )**( 2 ) )
+
+def spj_theory_dprime(s, n, numtrials):
+  n = np.asarray(n, dtype=float)
+  numtrials = np.asarray(numtrials, dtype=float)
+  return ( 2 )**( 1/2 ) * ( n )**( -1 ) * ( ( -1 + numtrials ) )**( 1/2 ) * ( \
+s )**( 2 ) * ( ( 2 * ( n )**( 2 ) + numtrials * ( s )**( 2 ) ) )**( \
+-1/2 )
+
+
+def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes):
+  n = default_noise_level
+
+  plt.figure(figsize=(18, 8))
+
+  plt.subplot(3, 2, 1)
+  plt.plot(signal_levels, np.asarray(spj_mean_signal)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  d = spjk_d_threshold
+  N = correlation_trial_count_list[-1]
+  plt.plot(signal_levels,
+          spj_theory_mean(signal_levels, default_noise_level, N),
+          label='Theory')
+  plt.title(f'Jackknife Stats for {N} trials')
+  plt.ylabel('Mean')
+  plt.legend()
+
+  plt.subplot(3, 2, 2);
+  plt.semilogx(correlation_trial_count_list, np.asarray(spj_mean_signal)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  d = spjk_d_threshold
+  N = correlation_trial_count_list
+  plt.semilogx(N, spj_theory_mean(s, n, N)*np.ones(len(N)), label='Theory')
+  plt.axhline(s*s, ls=':', label='Asymptote')
+  plt.title(f'Jackknife Stats for Sound Level s={s:4.2f}');
+  plt.legend()
+
+  ##################### Now plot the Variances  #####################
+  plt.subplot(3, 2, 3)
+  plt.plot(signal_levels, np.asarray(spj_var_signal)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  d = spjk_d_threshold
+  N = correlation_trial_count_list[-1]
+  plt.plot(signal_levels, spj_theory_var(s, n, N), label='Theory')
+  plt.ylabel('Variance')
+  plt.legend()
+
+  plt.subplot(3, 2, 4);
+  plt.semilogx(correlation_trial_count_list, np.asarray(spj_var_signal)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  d = spjk_d_threshold
+  N = correlation_trial_count_list
+  plt.semilogx(N, spj_theory_var(s, n, N), label='Theory')
+  plt.axhline(s*s*n*n, label='Asymptote', ls=':')
+  plt.legend()
+
+  ##################### Now plot the d's #####################
+  plt.subplot(3, 2, 5) # Plot by signal level
+  plt.plot(signal_levels, np.asarray(spj_dprimes)[:, -1], 'x', label='Simulation')
+  s = np.asarray(signal_levels)
+  n = default_noise_level  # Implicit definition used in the code above
+  d = spjk_d_threshold
+  N = correlation_trial_count_list[-1]
+  # dprimes = np.sqrt(2)*N*s**2/n/np.sqrt(N**2*s**2 + 3*N*s**2 + 2*N*n**2 + 2*n**2)
+  dprimes = spj_theory_dprime(s, n, N)
+  plt.plot(signal_levels, dprimes, label='Theory')
+  # plt.plot(signal_levels, np.sqrt(2)*s/n, ls=':', label='Asymptote')
+  plt.axhline(spjk_d_threshold, ls=':', label='d\' Threshold')
+  plt.legend()
+  plt.xlabel('Sound Level')
+  plt.ylabel('d\'')
+
+  plt.subplot(3, 2, 6)  # Plot by trial count
+  plt.semilogx(correlation_trial_count_list, np.asarray(spj_dprimes)[-1, :], 'x', label='Simulation')
+  s = np.asarray(signal_levels)[-1]
+  n = default_noise_level  # Implicit definition used in the code above
+  d = spjk_d_threshold
+  N = correlation_trial_count_list
+  # dprimes = np.sqrt(2)*N*s**2/n/np.sqrt(N**2*s**2 + 3*N*s**2 + 2*N*n**2 + 2*n**2)
+  dprimes = spj_theory_dprime(s, n, N)
+  plt.semilogx(N, dprimes, label='Theory')
+  plt.axhline(np.sqrt(2)*s/n, ls=':', label='Asymptote')
+  plt.legend();
+  plt.xlabel('Number of Trials');
+
+  plt.savefig('SinglePointJackknifeStats.png')
+
+##################### Comparing d's    #####################
+
+flags.DEFINE_integer('num_experiments', 1000, 'How many experiments to run.')
+
+FLAGS = flags.FLAGS
+
+def main(argv):
+  del argv  # Unused.
+
+  compare_full_partial_correlation()
+
+  (spc_dprimes, spf_dprimes, spp_dprimes,
+          spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
+          spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
+          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal
+          ) = run_simulations(num_experiments=FLAGS.num_experiments)
+
+  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes)
+  plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes)
+  plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes)
+
+  (spj_dprimes,
+    spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
+    ) = run_jackknife_simulations(n=default_noise_level, jackknife=True,
+                                  num_experiments=FLAGS.num_experiments)
+
+  plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes)
+
+
+if __name__ == '__main__':
+   app.run(main)
