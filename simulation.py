@@ -24,7 +24,7 @@ spp_d_threshold = 1 # What d' do we want for threshold?
 spjk_d_threshold = 1 # What d' do we want for threshold?
 spml_d_threshold = 1 # Threshold for multi-look tests
 
-correlation_trial_count_list
+print('Correlation Trial Count List:', correlation_trial_count_list)
 
 
 def matched_filter_correlate(w: NDArray) -> Tuple[NDArray, NDArray]:
@@ -105,6 +105,9 @@ def simulate_point_process(
         spp_var_noise: The variance, across experiments, of the power measure of the noise (no signal)
         spp_var_signal: The variance, across experiments, of the power measure of the signal
     """
+    print(f'Running the simulation with {num_experiments} experiments, '
+          '{len(signal)_levels} signals, {len(correlation_trial_count_list} '
+          'different trial counts, jackknife={jackknife}')
     spc_dprimes = np.zeros((len(signal_levels), len(correlation_trial_count_list)))  # Single Point Correlation d'
     spp_dprimes = spc_dprimes.copy()  # Single Point Power d'
     spf_dprimes = spc_dprimes.copy()  # Full covariacne d'
