@@ -225,7 +225,7 @@ def run_simulations(cache_dir: str = '.', jackknife: bool = False,
     (spc_dprimes, spf_dprimes, spp_dprimes,
     spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
     spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-    spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal
+    spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
     signal_levels) = simulate_point_process(
       n=default_noise_level, 
       num_experiments=num_experiments,
