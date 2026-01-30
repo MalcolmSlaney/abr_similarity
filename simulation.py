@@ -729,10 +729,9 @@ flags.DEFINE_string('cache_dir', '.', 'Directory to cache simulation results.')
 
 FLAGS = flags.FLAGS
 
-def main(argv):
-  del argv  # Unused.
-
-  compare_full_partial_correlation()
+def main(_argv):
+  # compare_full_partial_correlation()
+  print('Running simulations...cache dir:', FLAGS.cache_dir)
 
   (spc_dprimes, spf_dprimes, spp_dprimes,
           spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
