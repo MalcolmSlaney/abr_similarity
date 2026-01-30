@@ -749,8 +749,7 @@ def main(_argv):
           spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
           spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
           signal_levels) = run_simulations(num_experiments=FLAGS.num_experiments,
-                                           cache_dir=FLAGS.cache_dir))
-
+                                           cache_dir=FLAGS.cache_dir)
   plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes)
 
 
