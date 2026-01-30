@@ -226,7 +226,7 @@ def run_simulations(cache_dir: str = '.', jackknife: bool = False,
     spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
     spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
     spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal
-    ) = simulate_point_process(
+    signal_levels) = simulate_point_process(
       n=default_noise_level, 
       num_experiments=num_experiments,
       # signal_levels=signal_levels[-1:],
@@ -592,7 +592,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes):
 ##################### Single Point Jackknife (SPJ Stats #####################
 # spj is single point correlation via jackknife
 
-def run_jackknife_simulations(cache_filename: str = 'simulation_jackknife_cache.npz'):
+def XXrun_jackknife_simulations(cache_filename: str = 'simulation_jackknife_cache.npz'):
   """Run the simulations and plot the results.
   """
   if os.path.exists(cache_filename):
@@ -733,7 +733,7 @@ flags.DEFINE_string('cache_dir', '.', 'Directory to cache simulation results.')
 
 FLAGS = flags.FLAGS
 
-def main(_argv):
+def main(_argv=None):
   # compare_full_partial_correlation()
   print('Running simulations...cache dir:', FLAGS.cache_dir)
 
