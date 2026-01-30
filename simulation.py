@@ -180,11 +180,11 @@ def simulate_point_process(
                     np.sqrt((spf_var_signal[i, j] + spf_var_noise[i, j])/2))
         # print('Full correlate:', i, j, full_correlate(measurements))
 
-    return (spc_dprimes, spf_dprimes, spp_dprimes,
-            spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
-            spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-            spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal, 
-            signal_levels)
+    return (
+      spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
+      spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
+      spf_dprimes, spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal, 
+      signal_levels)
 
 
 def run_simulations(cache_dir: str = '.', jackknife: bool = False,
@@ -194,25 +194,27 @@ def run_simulations(cache_dir: str = '.', jackknife: bool = False,
   cache_filename = f'covariance_cache-{default_noise_level}-{jackknife}.npz'
   cache_filename = os.path.join(cache_dir, cache_filename)
   if os.path.exists(cache_filename):
-    print(f'Loading simulation results from {cache_filename}')
     data = np.load(cache_filename)
-    spc_dprimes = data['spc_dprimes']
-    spf_dprimes = data['spf_dprimes']
     spp_dprimes = data['spp_dprimes']
-    spc_mean_noise = data['spc_mean_noise']
-    spc_mean_signal = data['spc_mean_signal']
-    spc_var_noise = data['spc_var_noise']
-    spc_var_signal = data['spc_var_signal']
     spp_mean_noise = data['spp_mean_noise']
     spp_mean_signal = data['spp_mean_signal']
     spp_var_noise = data['spp_var_noise']
     spp_var_signal = data['spp_var_signal']
+
+    spc_dprimes = data['spc_dprimes']
+    spc_mean_noise = data['spc_mean_noise']
+    spc_mean_signal = data['spc_mean_signal']
+    spc_var_noise = data['spc_var_noise']
+    spc_var_signal = data['spc_var_signal']
+
+    spf_dprimes = data['spf_dprimes']
     spf_mean_noise = data['spf_mean_noise']
     spf_mean_signal = data['spf_mean_signal']
     spf_var_noise = data['spf_var_noise']
     spf_var_signal = data['spf_var_signal']
+
     signal_levels = data['signal_levels']
-    print('Loaded simulation results.')
+    print(f'Loaded simulation results from {cache_filename}.')
   else:
     # Just do the highest signal level, and the highest trial count,
     # to make sure the code works.
@@ -222,41 +224,42 @@ def run_simulations(cache_dir: str = '.', jackknife: bool = False,
     # spp is single point power metric
     # spjk is single point correlation via jackknife
 
-    (spc_dprimes, spf_dprimes, spp_dprimes,
-    spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
-    spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-    spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
-    signal_levels) = simulate_point_process(
+    (spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
+     spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
+     spf_dprimes, spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal, 
+     signal_levels) = simulate_point_process(
       n=default_noise_level, 
       num_experiments=num_experiments,
-      # signal_levels=signal_levels[-1:],
-      # correlation_trial_count_list=correlation_trial_count_list[-1:]
-      )
-    print('Saving simulation results to', cache_filename)
+      jackknife=jackknife,
+    )
     np.savez(cache_filename,
-             spc_dprimes=spc_dprimes,
-             spf_dprimes=spf_dprimes,
              spp_dprimes=spp_dprimes,
-             spc_mean_noise=spc_mean_noise,
-             spc_mean_signal=spc_mean_signal,
-             spc_var_noise=spc_var_noise,
-             spc_var_signal=spc_var_signal,
              spp_mean_noise=spp_mean_noise,
              spp_mean_signal=spp_mean_signal,
              spp_var_noise=spp_var_noise,
              spp_var_signal=spp_var_signal,
+
+             spc_dprimes=spc_dprimes,
+             spc_mean_noise=spc_mean_noise,
+             spc_mean_signal=spc_mean_signal,
+             spc_var_noise=spc_var_noise,
+             spc_var_signal=spc_var_signal,
+
+             spf_dprimes=spf_dprimes,
              spf_mean_noise=spf_mean_noise,
              spf_mean_signal=spf_mean_signal,
              spf_var_noise=spf_var_noise,
              spf_var_signal=spf_var_signal,
+
              signal_levels=signal_levels,
+             jackknife=jackknife,
              )
-    print('Saved simulation results.')
-  return (spc_dprimes, spf_dprimes, spp_dprimes,
-          spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
-          spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
-          signal_levels)
+    print('Saving simulation results to', cache_filename)
+  return (
+    spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
+    spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
+    spf_dprimes, spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal, 
+    signal_levels)
 
 
 
@@ -348,7 +351,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes):
   N = correlation_trial_count_list
   plt.semilogx(N, spp_mean(s, n, N), label='Theory')
   plt.axhline(s*s, ls='--', label='Asymptote')
-  plt.title(f'Power Stats for Sound Level s={s:4.2f}');
+  plt.title(f'Power Stats for Signal Level s={s:4.2f}');
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -737,12 +740,12 @@ def main(_argv=None):
   # compare_full_partial_correlation()
   print('Running simulations...cache dir:', FLAGS.cache_dir)
 
-  (spc_dprimes, spf_dprimes, spp_dprimes,
-          spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
-          spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
-          signal_levels) = run_simulations(num_experiments=FLAGS.num_experiments,
-                                           cache_dir=FLAGS.cache_dir)
+  (spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
+   spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
+   spf_dprimes, spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal, 
+   signal_levels) = run_simulations(num_experiments=FLAGS.num_experiments,
+                                    cache_dir=FLAGS.cache_dir,
+                                    jackknife=False)
 
   plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes)
   plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes)
@@ -753,7 +756,8 @@ def main(_argv=None):
           spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
           spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
           signal_levels) = run_simulations(num_experiments=FLAGS.num_experiments,
-                                           cache_dir=FLAGS.cache_dir)
+                                           cache_dir=FLAGS.cache_dir, 
+                                           jackknife=True)
   plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes)
 
 
