@@ -107,8 +107,8 @@ def simulate_point_process(
         spp_var_signal: The variance, across experiments, of the power measure of the signal
     """
     print(f'Running the simulation with {num_experiments} experiments, '
-          '{len(signal)_levels} signals, {len(correlation_trial_count_list} '
-          'different trial counts, jackknife={jackknife}')
+          f'{len(signal_levels)} signals, {len(correlation_trial_count_list)} '
+          f'different trial counts, jackknife={jackknife}')
     spc_dprimes = np.zeros((len(signal_levels), len(correlation_trial_count_list)))  # Single Point Correlation d'
     spp_dprimes = spc_dprimes.copy()  # Single Point Power d'
     spf_dprimes = spc_dprimes.copy()  # Full covariacne d'
@@ -187,8 +187,8 @@ def simulate_point_process(
       signal_levels)
 
 
-def run_simulations(cache_dir: str = '.', jackknife: bool = False,
-                    num_experiments=20) -> Tuple:
+def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
+                        num_experiments=20) -> Tuple:
   """Run the simulations and plot the results.
   """
   cache_filename = f'covariance_cache-{default_noise_level}-{jackknife}.npz'
@@ -743,9 +743,9 @@ def main(_argv=None):
   (spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
    spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
    spf_dprimes, spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal, 
-   signal_levels) = run_simulations(num_experiments=FLAGS.num_experiments,
-                                    cache_dir=FLAGS.cache_dir,
-                                    jackknife=False)
+   signal_levels) = get_simulation_data(num_experiments=FLAGS.num_experiments,
+                                        cache_dir=FLAGS.cache_dir,
+                                        jackknife=False)
 
   plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes)
   plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes)
@@ -755,9 +755,9 @@ def main(_argv=None):
           spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
           spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
           spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
-          signal_levels) = run_simulations(num_experiments=FLAGS.num_experiments,
-                                           cache_dir=FLAGS.cache_dir, 
-                                           jackknife=True)
+          signal_levels) = get_simulation_data(num_experiments=FLAGS.num_experiments,
+                                               cache_dir=FLAGS.cache_dir, 
+                                               jackknife=True)
   plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes)
 
 
