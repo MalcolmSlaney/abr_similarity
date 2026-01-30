@@ -3,6 +3,7 @@ from absl import flags
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 from numpy.typing import NDArray, ArrayLike
 from typing import List, Tuple
 
@@ -182,12 +183,15 @@ def simulate_point_process(
     return (spc_dprimes, spf_dprimes, spp_dprimes,
             spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
             spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-            spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal)
+            spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal, 
+            signal_levels)
 
 
-def run_simulations(cache_filename: str = 'simulation_cache.npz'):
+def run_simulations(cache_dir: str = '.', jackknife: bool = False) -> Tuple:
   """Run the simulations and plot the results.
   """
+  cache_filename = f'covariance_cache-{default_noise_level}-{jackknife}.npz'
+  cache_filename = os.path.join(cache_dir, cache_filename)
   if os.path.exists(cache_filename):
     print(f'Loading simulation results from {cache_filename}')
     data = np.load(cache_filename)
@@ -206,6 +210,7 @@ def run_simulations(cache_filename: str = 'simulation_cache.npz'):
     spf_mean_signal = data['spf_mean_signal']
     spf_var_noise = data['spf_var_noise']
     spf_var_signal = data['spf_var_signal']
+    signal_levels = data['signal_levels']
     print('Loaded simulation results.')
   else:
     # Just do the highest signal level, and the highest trial count,
@@ -240,12 +245,14 @@ def run_simulations(cache_filename: str = 'simulation_cache.npz'):
              spf_mean_signal=spf_mean_signal,
              spf_var_noise=spf_var_noise,
              spf_var_signal=spf_var_signal
+             signal_levels=signal_levels,
              )
     print('Saved simulation results.')
   return (spc_dprimes, spf_dprimes, spp_dprimes,
           spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
           spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal)
+          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
+          signal_levels)
 
 
 
@@ -729,17 +736,18 @@ def main(argv):
   (spc_dprimes, spf_dprimes, spp_dprimes,
           spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
           spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal
-          ) = run_simulations(num_experiments=FLAGS.num_experiments)
+          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
+          signal_levels) = run_simulations(num_experiments=FLAGS.num_experiments)
 
   plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes)
   plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes)
   plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes)
 
-  (spj_dprimes,
-    spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
-    ) = run_jackknife_simulations(n=default_noise_level, jackknife=True,
-                                  num_experiments=FLAGS.num_experiments)
+  (spj_dprimes, spf_dprimes, spp_dprimes,
+          spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
+          spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
+          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
+          signal_levels) = run_simulations(num_experiments=FLAGS.num_experiments)
 
   plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes)
 
