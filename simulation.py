@@ -388,7 +388,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes):
   # plt.plot(signal_levels, np.sqrt(2)*s/n, ls=':', label='Asymptote')
   plt.axhline(spp_d_threshold, ls=':', label='d\' Threshold')
   plt.legend()
-  plt.xlabel('Sound Level')
+  plt.xlabel('Signal Level')
   plt.ylabel('d\'')
 
   plt.subplot(3, 2, 6)  # Plot by trial count
@@ -446,7 +446,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes):
   N = correlation_trial_count_list
   plt.semilogx(N, spc_theory_mean(s, n, N), label='Theory')
   plt.axhline(s*s, ls='--', label='Asymptote')
-  plt.title(f'Matched Filter Stats for Sound Level s={s:4.2f}');
+  plt.title(f'Matched Filter Stats for Signal Level s={s:4.2f}');
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -481,7 +481,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes):
   # plt.plot(signal_levels, np.sqrt(2)*s/n, ls=':', label='Asymptote')
   plt.axhline(spc_d_threshold, ls=':', label='d\' Threshold')
   plt.legend()
-  plt.xlabel('Sound Level')
+  plt.xlabel('Signal Level')
   plt.ylabel('d\'')
 
   plt.subplot(3, 2, 6)  # Plot by trial count
@@ -543,7 +543,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes):
   N = correlation_trial_count_list
   plt.semilogx(N, spf_theory_mean(s, n, N), label='Theory')
   plt.axhline(s*s, ls='--', label='Asymptote')
-  plt.title(f'Full Covariance Stats for Sound Level s={s:4.2f}');
+  plt.title(f'Full Covariance Stats for Signal Level s={s:4.2f}');
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -577,7 +577,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes):
   # plt.plot(signal_levels, np.sqrt(2)*s/n, ls=':', label='Asymptote')
   plt.axhline(spf_d_threshold, ls=':', label='d\' Threshold')
   plt.legend()
-  plt.xlabel('Sound Level')
+  plt.xlabel('Signal Level')
   plt.ylabel('d\'')
 
   plt.subplot(3, 2, 6)  # Plot by trial count
@@ -638,7 +638,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes):
   N = correlation_trial_count_list
   plt.semilogx(N, spj_theory_mean(s, n, N)*np.ones(len(N)), label='Theory')
   plt.axhline(s*s, ls=':', label='Asymptote')
-  plt.title(f'Jackknife Stats for Sound Level s={s:4.2f}');
+  plt.title(f'Jackknife Stats for Signal Level s={s:4.2f}');
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -673,7 +673,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes):
   # plt.plot(signal_levels, np.sqrt(2)*s/n, ls=':', label='Asymptote')
   plt.axhline(spjk_d_threshold, ls=':', label='d\' Threshold')
   plt.legend()
-  plt.xlabel('Sound Level')
+  plt.xlabel('Signal Level')
   plt.ylabel('d\'')
 
   plt.subplot(3, 2, 6)  # Plot by trial count
