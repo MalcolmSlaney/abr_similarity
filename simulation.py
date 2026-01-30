@@ -1,5 +1,6 @@
 from absl import app
 from absl import flags
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -107,7 +108,7 @@ def simulate_point_process(
         spp_var_signal: The variance, across experiments, of the power measure of the signal
     """
     print(f'Running the simulation with {num_experiments} experiments, '
-          f'{len(signal_levels)} signals, {len(correlation_trial_count_list)} '
+          f'{len(signal_levels)} signal levels, {len(correlation_trial_count_list)} '
           f'different trial counts, jackknife={jackknife}')
     spc_dprimes = np.zeros((len(signal_levels), len(correlation_trial_count_list)))  # Single Point Correlation d'
     spp_dprimes = spc_dprimes.copy()  # Single Point Power d'
@@ -253,6 +254,7 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
 
              signal_levels=signal_levels,
              jackknife=jackknife,
+             datetime=str(datetime.now()),
              )
     print('Saving simulation results to', cache_filename)
   return (
@@ -595,46 +597,6 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes):
 ##################### Single Point Jackknife (SPJ Stats #####################
 # spj is single point correlation via jackknife
 
-def XXrun_jackknife_simulations(cache_filename: str = 'simulation_jackknife_cache.npz'):
-  """Run the simulations and plot the results.
-  """
-  if os.path.exists(cache_filename):
-    print(f'Loading jackknife simulation results from {cache_filename}')
-    data = np.load(cache_filename)
-    spj_dprimes = data['spj_dprimes']
-    spj_mean_noise = data['spj_mean_noise']
-    spj_mean_signal = data['spj_mean_signal']
-    spj_var_noise = data['spj_var_noise']
-    spj_var_signal = data['spj_var_signal']
-    print('Loaded jackknife simulation results.')
-  else:
-    # Just do the highest signal level, and the highest trial count,
-    # to make sure the code works.
-
-    # spc is single point correlation
-    # spf is single point full correlation
-    # spp is single point power metric
-    # spjk is single point correlation via jackknife
-
-    (spj_dprimes, 
-    spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
-    ) = simulate_point_process(n=default_noise_level, num_experiments=20,
-                                signal_levels=signal_levels[-1:],
-                                jackknife=True,
-                                correlation_trial_count_list=correlation_trial_count_list[-1:])
-    print('Saving simulation results to', cache_filename)
-    np.savez(cache_filename,
-             spj_dprimes=spj_dprimes,
-             spj_mean_noise=spj_mean_noise,
-             spj_mean_signal=spj_mean_signal,
-             spj_var_noise=spj_var_noise,
-             spj_var_signal=spj_var_signal,
-             )
-    print('Saved simulation results.')
-  return (spj_dprimes,
-          spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
-          )
-
 
 def spj_theory_mean(s, n, N):
   return s*s
@@ -738,7 +700,7 @@ FLAGS = flags.FLAGS
 
 def main(_argv=None):
   # compare_full_partial_correlation()
-  print('Running simulations...cache dir:', FLAGS.cache_dir)
+  print('ABR Simulations...cache dir:', FLAGS.cache_dir)
 
   (spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
    spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
