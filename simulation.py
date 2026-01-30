@@ -755,9 +755,10 @@ def main(_argv=None):
           spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
           spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
           spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
-          signal_levels) = get_simulation_data(num_experiments=FLAGS.num_experiments,
-                                               cache_dir=FLAGS.cache_dir, 
-                                               jackknife=True)
+          signal_levels) = get_simulation_data(
+            num_experiments=min(FLAGS.num_experiments, 20),
+            cache_dir=FLAGS.cache_dir, 
+            jackknife=True)
   plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes)
 
 
