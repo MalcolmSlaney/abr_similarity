@@ -25,7 +25,7 @@ spp_d_threshold = 1 # What d' do we want for threshold?
 spjk_d_threshold = 1 # What d' do we want for threshold?
 spml_d_threshold = 1 # Threshold for multi-look tests
 
-print('Correlation Trial Count List:', correlation_trial_count_list)
+# print('Correlation Trial Count List:', correlation_trial_count_list)
 
 
 def matched_filter_correlate(w: NDArray) -> Tuple[NDArray, NDArray]:
@@ -39,7 +39,7 @@ def matched_filter_correlate(w: NDArray) -> Tuple[NDArray, NDArray]:
   correlations = model*w
   return np.mean(correlations), np.var(correlations)
 
-matched_filter_correlate(np.random.randn(3, 4))
+# matched_filter_correlate(np.random.randn(3, 4))
 
 
 def full_correlate(w: NDArray, max_k=20) -> Tuple[NDArray, NDArray]:
@@ -63,7 +63,7 @@ def full_correlate(w: NDArray, max_k=20) -> Tuple[NDArray, NDArray]:
     vars[i] = np.var(correlation)
   return np.mean(means), np.mean(vars)
 
-full_correlate(np.random.randn(3, 4))
+# full_correlate(np.random.randn(3, 4))
 
 def jackknife_correlate(data):
     """Compute the correlation of the data with a model that does *not* include
@@ -187,7 +187,8 @@ def simulate_point_process(
             signal_levels)
 
 
-def run_simulations(cache_dir: str = '.', jackknife: bool = False) -> Tuple:
+def run_simulations(cache_dir: str = '.', jackknife: bool = False,
+                    num_experiments=20) -> Tuple:
   """Run the simulations and plot the results.
   """
   cache_filename = f'covariance_cache-{default_noise_level}-{jackknife}.npz'
@@ -225,9 +226,12 @@ def run_simulations(cache_dir: str = '.', jackknife: bool = False) -> Tuple:
     spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
     spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
     spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal
-    ) = simulate_point_process(n=default_noise_level, num_experiments=20,
-                                signal_levels=signal_levels[-1:],
-                                correlation_trial_count_list=correlation_trial_count_list[-1:])
+    ) = simulate_point_process(
+      n=default_noise_level, 
+      num_experiments=num_experiments,
+      # signal_levels=signal_levels[-1:],
+      # correlation_trial_count_list=correlation_trial_count_list[-1:]
+      )
     print('Saving simulation results to', cache_filename)
     np.savez(cache_filename,
              spc_dprimes=spc_dprimes,
@@ -244,7 +248,7 @@ def run_simulations(cache_dir: str = '.', jackknife: bool = False) -> Tuple:
              spf_mean_noise=spf_mean_noise,
              spf_mean_signal=spf_mean_signal,
              spf_var_noise=spf_var_noise,
-             spf_var_signal=spf_var_signal
+             spf_var_signal=spf_var_signal,
              signal_levels=signal_levels,
              )
     print('Saved simulation results.')
