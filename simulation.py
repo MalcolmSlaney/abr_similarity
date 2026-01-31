@@ -265,7 +265,7 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
 
 
 
-def compare_full_partial_correlation():
+def compare_full_partial_correlation(plot_dir: str = '.'):
   """Compare the full covariance and partial (matched filter) covariance distributions.
   """
   n=1.2
@@ -308,7 +308,7 @@ def compare_full_partial_correlation():
   print(f'Partial mean: theory {s**2+n**2/N}, simulation {np.mean(mf_cov.reshape(-1))}')
   print(f'Partial var: theory {(1+3/N)*s**2*n**2 + (N+1)*n**4/N**2}, simulation {np.var(mf_cov.reshape(-1))}')
 
-  plt.savefig('FullVsPartialCovariance.png', dpi=300)
+  plt.savefig(os.path.join'FullVsPartialCovariance.png', dpi=300)
 
 
 ######################## Single Point Power Metric Simulation ########################
@@ -403,7 +403,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir: str =
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig(os.path.join(plot_dir, 'SinglePointPowerStats.png'))
+  plt.savefig(os.path.join(plot_dir, 'SinglePointPowerStats.png'), dpi=300)
 
 
 ######################## Single Point Covariance Metric Simulation ########################
@@ -497,7 +497,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimesi, plot_dir: str 
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig(os.path.join(plot_dir, 'SinglePointMatchedFilterStats.png') )
+  plt.savefig(os.path.join(plot_dir, 'SinglePointMatchedFilterStats.png'), dpi=300)
 
 ######################## Single Point Full Covariance Metric Simulation ########################
 
@@ -592,7 +592,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes, plot_dir: str =
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig(os.path.join(plot_dir, 'SinglePointFullCovarianceStats.png'))
+  plt.savefig(os.path.join(plot_dir, 'SinglePointFullCovarianceStats.png'), dpi=300)
 
 ##################### Single Point Jackknife (SPJ Stats #####################
 # spj is single point correlation via jackknife
@@ -689,7 +689,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir: str =
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig(os.path.join(plot_dir,'SinglePointJackknifeStats.png'))
+  plt.savefig(os.path.join(plot_dir,'SinglePointJackknifeStats.png'), dpi=300)
 
 ##################### Comparing d's    #####################
 
@@ -707,7 +707,7 @@ def compare_dprimes(plot_dir: str = '.'):
   plt.legend()
   plt.ylim(2, 50)
   plt.title('Comparison of Detection Methods')
-  plt.savefig(os.path.join(plot_dir, 'DPrimeComparison.png'))
+  plt.savefig(os.path.join(plot_dir, 'DPrimeComparison.png'), dpi=300)
 
 
 def multilook_plot(plot_dir: str = '.'):
@@ -759,7 +759,7 @@ def multilook_plot(plot_dir: str = '.'):
   plt.gca().spines['top'].set_visible(False)
   plt.gca().spines['right'].set_visible(False)
 
-  plt.savefig(os.path.join(plot_dir, 'MultilookDPrimeComparison.png'))
+  plt.savefig(os.path.join(plot_dir, 'MultilookDPrimeComparison.png'), dpi=300)
 
 
 FLAGS = flags.FLAGS
