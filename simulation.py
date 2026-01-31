@@ -713,11 +713,10 @@ def main(_argv=None):
   plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes)
   plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes)
 
-  (spj_dprimes, spf_dprimes, spp_dprimes,
-          spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
-          spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-          spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal,
-          signal_levels) = get_simulation_data(
+  (_, _, _, _,
+   spj_dprimes, spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
+   _, _, _, _,
+   signal_levels) = get_simulation_data(num_experiments=FLAGS.num_experiments,
             num_experiments=min(FLAGS.num_experiments, 20),
             cache_dir=FLAGS.cache_dir, 
             jackknife=True)
