@@ -763,6 +763,18 @@ def multilook_plot(plot_dir: str = '.'):
   plt.savefig(os.path.join(plot_dir, 'MultilookDPrimeComparison.png'), dpi=300)
 
 
+def threshold_theory_ratio(plot_dir: str = '.'):
+  def ratio(d):
+    return 2 * ( ( d + ( ( 2 + ( d )**( 2 ) ) )**( 1/2 ) ) )**( 1/2 ) * ( ( d + ( \
+           ( 16 + ( d )**( 2 ) ) )**( 1/2 ) ) )**( -1/2 )
+
+  d = 10**(np.arange(-2, 2, .01))
+  plt.semilogx(d, ratio(d))
+  plt.xlabel('d\'')
+  plt.ylabel('Power of average threshold / covariance threshold')
+  plt.title('Comparison of sound threshold for power of average vs. covariance')
+  plt.savefig(os.path.join(plot_dir, 'AverageVsCovarianceThresholdRatio.png'), dpi=300)
+
 flags.DEFINE_integer('num_experiments', 1000, 'How many experiments to run.')
 flags.DEFINE_integer('num_jackknife_experiments', 100, 'How many jackknife experiments to run.')
 flags.DEFINE_string('cache_dir', '.', 'Directory to cache simulation results.')
@@ -795,6 +807,7 @@ def main(_argv=None):
 
   compare_dprimes(plot_dir=FLAGS.cache_dir)
   multilook_plot(plot_dir=FLAGS.cache_dir)
+  threshold_theory_
 
 if __name__ == '__main__':
    app.run(main)
