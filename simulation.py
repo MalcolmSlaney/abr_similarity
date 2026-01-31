@@ -192,7 +192,7 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
                         num_experiments=20) -> Tuple:
   """Run the simulations and plot the results.
   """
-  cache_filename = f'covariance_cache-{default_noise_level}-{jackknife}.npz'
+  cache_filename = f'covariance_cache-{default_noise_level}-jackknife_{jackknife}.npz'
   cache_filename = os.path.join(cache_dir, cache_filename)
   if os.path.exists(cache_filename):
     data = np.load(cache_filename)
