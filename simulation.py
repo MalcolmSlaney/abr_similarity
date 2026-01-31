@@ -697,6 +697,7 @@ def compare_dprimes(plot_dir: str = '.'):
   N = (2**np.arange(4, 8, 0.25)).astype(float)
   s = 3.1
   n = 1
+  plt.clf()
   plt.loglog(N, spj_theory_dprime(s, n, N)*np.sqrt(N), label='Multilook Jackknife')
   plt.loglog(N, spp_dprime(s, n, N), label='Power of Average')
   plt.loglog(N, spj_theory_dprime(s, n, N), label='Jackknife (single trial)')
