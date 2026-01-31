@@ -325,7 +325,7 @@ def spp_dprime(s, n, N):
   N = np.asarray(N, dtype=float)
   return 2*s/np.sqrt(2*s*s*n*n/N + 2*n**4/N**2)
 
-def spp_threshold(s, n, numtrials):
+def spp_threshold(s, n, d, numtrials):
   return ( numtrials )**( -1 ) * ( ( ( d )**( 2 ) * ( n )**( 2 ) * numtrials + \
 d * ( ( 2 + ( d )**( 2 ) ) )**( 1/2 ) * ( n )**( 2 ) * numtrials ) )**( \
 1/2 )
