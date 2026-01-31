@@ -331,7 +331,7 @@ d * ( ( 2 + ( d )**( 2 ) ) )**( 1/2 ) * ( n )**( 2 ) * numtrials ) )**( \
 1/2 )
 
 
-def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes):
+def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir: str = '.'):
   plt.figure(figsize=(16, 5))
 
   plt.subplot(3, 2, 1)
@@ -403,7 +403,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes):
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig('SinglePointPowerStats.png')
+  plt.savefig(os.path.join(plot_dir, 'SinglePointPowerStats.png'))
 
 
 ######################## Single Point Covariance Metric Simulation ########################
@@ -422,7 +422,7 @@ def spc_theory_dprime(s, n, numtrials):
 2 ) ) )**( -1/2 )
 
 
-def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes):
+def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimesi, plot_dir: str = '.'):
   n = default_noise_level
 
   plt.figure(figsize=(16, 5))
@@ -497,7 +497,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes):
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig('SinglePointMatchedFilterStats.png')
+  plt.savefig(os.path.join(plot_dir, 'SinglePointMatchedFilterStats.png') )
 
 ######################## Single Point Full Covariance Metric Simulation ########################
 
@@ -519,7 +519,7 @@ def spf_theory_dprime(s, n, N):
       np.sqrt((spf_theory_var(s, n, N) + spf_theory_var(0, n, N))/2))
 
 
-def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes):
+def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes, plot_dir: str = '.'):
   n = default_noise_level
 
   plt.figure(figsize=(16, 5))
@@ -592,7 +592,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes):
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig('SinglePointFullCovarianceStats.png')
+  plt.savefig(os.path.join(plot_dir, 'SinglePointFullCovarianceStats.png'))
 
 ##################### Single Point Jackknife (SPJ Stats #####################
 # spj is single point correlation via jackknife
@@ -614,7 +614,7 @@ s )**( 2 ) * ( ( 2 * ( n )**( 2 ) + numtrials * ( s )**( 2 ) ) )**( \
 -1/2 )
 
 
-def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes):
+def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir: str = '.'):
   n = default_noise_level
 
   plt.figure(figsize=(18, 8))
@@ -689,18 +689,19 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes):
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig('SinglePointJackknifeStats.png')
+  plt.savefig(os.path.join(plot_dir,'SinglePointJackknifeStats.png'))
 
 ##################### Comparing d's    #####################
 
-flags.DEFINE_integer('num_experiments', 1000, 'How many experiments to run.')
+flags.DEFINE_integer('num_experiments', 2000, 'How many experiments to run.')
+flags.DEFINE_integer('num_jackknife_experiments', 100, 'How many experiments to run.')
 flags.DEFINE_string('cache_dir', '.', 'Directory to cache simulation results.')
 
 FLAGS = flags.FLAGS
 
 def main(_argv=None):
   # compare_full_partial_correlation()
-  print('ABR Simulations...cache dir:', FLAGS.cache_dir)
+  print('ABR Simulations. Cache dir is', FLAGS.cache_dir)
 
   (spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
    spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
@@ -709,18 +710,18 @@ def main(_argv=None):
                                         cache_dir=FLAGS.cache_dir,
                                         jackknife=False)
 
-  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes)
-  plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes)
-  plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes)
+  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, ploy_dir=FLAGS.cache_dir)
+  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, ploy_dir=FLAGS.cache_dir)
+  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, ploy_dir=FLAGS.cache_dir)
 
   (_, _, _, _, _,
    spj_dprimes, spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
    _, _, _, _, _,
    signal_levels) = get_simulation_data(
-            num_experiments=min(FLAGS.num_experiments, 20),
+            num_experiments=FLAGS.num_jackknife_experiments,
             cache_dir=FLAGS.cache_dir, 
             jackknife=True)
-  plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes)
+  plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir=FLAGS.cache_dir)
 
 
 if __name__ == '__main__':
