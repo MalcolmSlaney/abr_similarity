@@ -308,7 +308,7 @@ def compare_full_partial_correlation(plot_dir: str = '.'):
   print(f'Partial mean: theory {s**2+n**2/N}, simulation {np.mean(mf_cov.reshape(-1))}')
   print(f'Partial var: theory {(1+3/N)*s**2*n**2 + (N+1)*n**4/N**2}, simulation {np.var(mf_cov.reshape(-1))}')
 
-  plt.savefig(os.path.join'FullVsPartialCovariance.png', dpi=300)
+  plt.savefig(os.path.join(plot_dir, 'FullVsPartialCovariance.png'), dpi=300)
 
 
 ######################## Single Point Power Metric Simulation ########################
