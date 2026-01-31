@@ -709,6 +709,59 @@ def compare_dprimes(plot_dir: str = '.'):
   plt.title('Comparison of Detection Methods')
   plt.savefig(os.path.join(plot_dir, 'DPrimeComparison.png'))
 
+
+def multilook_plot(plot_dir: str = '.'):
+  # Make a plot show how muliple looks are used.
+  def gaussian_scatter(center=(0, 0), r=0.3, count=100) -> NDArray:
+    points = np.random.randn(len(center), count)*r
+    return points + np.expand_dims(np.asarray(center), axis=1)
+
+  count = 4000
+  points0 = gaussian_scatter(center=(1, 0), r=0.3, count=count)
+  points1 = gaussian_scatter(center=(0, 1), r=0.3, count=count)
+  points2 = gaussian_scatter(center=(1, 1), r=0.3, count=count)
+  alpha = 0.05
+
+  plt.figure(figsize=(10, 10))
+
+  plt.subplot(2, 2, 1)
+  counts, centers = np.histogram(points2[0,:], bins=30)
+  plt.plot(counts, (centers[1:] + centers[:-1])/2);
+  plt.xlabel('Frequency'), plt.ylabel('Correlation'), plt.title('Look 1 Distribution')
+  plt.axhline(1.0, ls='--', color='r')
+  plt.gca().spines['top'].set_visible(False)
+  plt.gca().spines['right'].set_visible(False)
+
+
+  plt.subplot(2, 2, 3)
+  plt.plot(points2[0, :], points2[1, :], '.', alpha=0.1)
+  plt.title('Correlations for Both Looks')
+  plt.xlabel('Look 2 Correlation'), plt.ylabel('Look 1 Correlation')
+  plt.gca().spines['top'].set_visible(False)
+  plt.gca().spines['right'].set_visible(False)
+
+  plt.subplot(2, 2, 2)
+  distance = np.sqrt(points2[0, :]**2 + points2[1, :]**2)
+  counts, centers = np.histogram(distance, bins=30)
+  plt.plot((centers[1:] + centers[:-1])/2, counts)
+  plt.axvline(np.sqrt(2), ls='--', color='r')
+  plt.ylabel('Frequency'), plt.xlabel('Correlation'), plt.title('2 Look Distribution')
+  plt.gca().spines['top'].set_visible(False)
+  plt.gca().spines['right'].set_visible(False)
+  plt.annotate('Note larger mean', (1.414, 100), (1.85, 200),
+              arrowprops=dict(arrowstyle='->', color='red'))
+
+  plt.subplot(2, 2, 4)
+  counts, centers = np.histogram(points2[1,:], bins=30)
+  plt.plot((centers[1:] + centers[:-1])/2, counts)
+  plt.axvline(1.0, ls='--', color='r');
+  plt.ylabel('Frequency'), plt.xlabel('Correlation'), plt.title('Look 2 Distribution');
+  plt.gca().spines['top'].set_visible(False)
+  plt.gca().spines['right'].set_visible(False)
+
+  plt.savefig(os.path.join(plot_dir, 'MultilookDPrimeComparison.png'))
+
+
 FLAGS = flags.FLAGS
 
 def main(_argv=None):
@@ -736,6 +789,7 @@ def main(_argv=None):
   plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir=FLAGS.cache_dir)
 
   compare_dprimes(plot_dir=FLAGS.cache_dir)
+  multilook_plot(plot_dir=FLAGS.cache_dir)
 
 if __name__ == '__main__':
    app.run(main)
