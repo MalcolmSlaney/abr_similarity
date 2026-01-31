@@ -693,9 +693,21 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir: str =
 
 ##################### Comparing d's    #####################
 
-flags.DEFINE_integer('num_experiments', 2000, 'How many experiments to run.')
-flags.DEFINE_integer('num_jackknife_experiments', 100, 'How many experiments to run.')
-flags.DEFINE_string('cache_dir', '.', 'Directory to cache simulation results.')
+def compare_dprimes(plot_dir: str = '.'):
+  N = (2**np.arange(4, 8, 0.25)).astype(float)
+  s = 3.1
+  n = 1
+  plt.loglog(N, spj_theory_dprime(s, n, N)*np.sqrt(N), label='Multilook Jackknife')
+  plt.loglog(N, spp_dprime(s, n, N), label='Power of Average')
+  plt.loglog(N, spj_theory_dprime(s, n, N), label='Jackknife (single trial)')
+  plt.loglog(N, spc_theory_dprime(s, n, N), label='Matched Filter (single trial)')
+  plt.loglog(N, spf_theory_dprime(s, n, N), label='Full Correlation (single trial)')
+  plt.xlabel('Number of Trials (N)')
+  plt.ylabel('d\'')
+  plt.legend()
+  plt.ylim(2, 50)
+  plt.title('Comparison of Detection Methods')
+  plt.savefig(os.path.join(plot_dir, 'DPrimeComparison.png'))
 
 FLAGS = flags.FLAGS
 
@@ -723,6 +735,7 @@ def main(_argv=None):
             jackknife=True)
   plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir=FLAGS.cache_dir)
 
+  compare_dprimes(plot_dir=FLAGS.cache_dir)
 
 if __name__ == '__main__':
    app.run(main)
