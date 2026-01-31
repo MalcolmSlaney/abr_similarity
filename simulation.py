@@ -807,7 +807,7 @@ def main(_argv=None):
 
   compare_dprimes(plot_dir=FLAGS.cache_dir)
   multilook_plot(plot_dir=FLAGS.cache_dir)
-  threshold_theory_
+  threshold_theory_ratio(plot_dir=FLAGS.cache_dir)
 
 if __name__ == '__main__':
    app.run(main)
