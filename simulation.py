@@ -768,6 +768,7 @@ def threshold_theory_ratio(plot_dir: str = '.'):
     return 2 * ( ( d + ( ( 2 + ( d )**( 2 ) ) )**( 1/2 ) ) )**( 1/2 ) * ( ( d + ( \
            ( 16 + ( d )**( 2 ) ) )**( 1/2 ) ) )**( -1/2 )
 
+  plt.figure()
   d = 10**(np.arange(-2, 2, .01))
   plt.semilogx(d, ratio(d))
   plt.xlabel('d\'')
