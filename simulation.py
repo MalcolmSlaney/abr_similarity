@@ -716,7 +716,7 @@ def main(_argv=None):
   (_, _, _, _,
    spj_dprimes, spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
    _, _, _, _,
-   signal_levels) = get_simulation_data(num_experiments=FLAGS.num_experiments,
+   signal_levels) = get_simulation_data(
             num_experiments=min(FLAGS.num_experiments, 20),
             cache_dir=FLAGS.cache_dir, 
             jackknife=True)
