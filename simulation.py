@@ -710,9 +710,9 @@ def main(_argv=None):
                                         cache_dir=FLAGS.cache_dir,
                                         jackknife=False)
 
-  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, ploy_dir=FLAGS.cache_dir)
-  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, ploy_dir=FLAGS.cache_dir)
-  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, ploy_dir=FLAGS.cache_dir)
+  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir=FLAGS.cache_dir)
+  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir=FLAGS.cache_dir)
+  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir=FLAGS.cache_dir)
 
   (_, _, _, _, _,
    spj_dprimes, spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
