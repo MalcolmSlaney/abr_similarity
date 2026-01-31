@@ -762,6 +762,10 @@ def multilook_plot(plot_dir: str = '.'):
   plt.savefig(os.path.join(plot_dir, 'MultilookDPrimeComparison.png'), dpi=300)
 
 
+flags.DEFINE_integer('num_experiments', 1000, 'How many experiments to run.')
+flags.DEFINE_integer('num_jackknife_experiments', 100, 'How many jackknife experiments to run.')
+flags.DEFINE_string('cache_dir', '.', 'Directory to cache simulation results.')
+
 FLAGS = flags.FLAGS
 
 def main(_argv=None):
