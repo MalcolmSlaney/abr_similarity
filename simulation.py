@@ -691,6 +691,110 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir: str =
 
   plt.savefig(os.path.join(plot_dir,'SinglePointJackknifeStats.png'), dpi=300)
 
+##################### Colored Noise - Fouier Approach #####################
+def make_basis(N) -> NDArray:
+  """Make a set of cosine basis functions"""
+  assert np.floor(np.log2(N)) == np.log2(N)
+
+  basis = np.zeros((N, N))
+  for i in range(N):
+    basis[:, i] = np.cos(2*np.pi*i*np.arange(N)/N)
+  return basis
+
+def make_signal(spectrum: NDArray) -> NDArray:
+  """Given a Fourier spectrum, invert the FFT to get a real time-domain waveform."""
+  N = len(spectrum)
+  return np.real(np.fft.ifft(spectrum))*N
+
+def make_hermitian(s: NDArray) -> NDArray:
+  """Flip the positive frequency part of the spectrum (first half) to get the
+  negative frequencies (2nd half)
+  """
+  N = (len(s)-1)*2
+  assert np.floor(np.log2(N)) == np.log2(N)
+  r = np.zeros(N, dtype=complex)
+  r[:len(s)] = s
+  r[len(s):] = np.conjugate(np.flipud(s[1:-1]))
+  return r
+
+def make_noise(N: int, noise_level: float) -> NDArray:
+  """Create a noise spectrum and invert it to get a real noisy waveform."""
+  spectrum = noise_level * np.exp(1j * np.random.rand(N//2+1)*2*np.pi)
+  spectrum[0] = noise_level
+  spectrum[N//2] = noise_level
+  spectrum = make_hermitian(spectrum)
+  return spectrum, N*np.real(np.fft.ifft(spectrum))
+
+
+def make_experiment(signal_waveform: NDArray,
+                    num_trials: int,
+                    noise_level: float = 1) -> NDArray:
+  """Create a set of trials that make up a full experiment."""
+  N = len(signal_waveform)
+  results = np.zeros((N, num_trials))
+  for i in range(num_trials):
+    noise_spectrum, noise_waveform = make_noise(N, noise_level)
+    results[:, i] = signal_waveform + noise_waveform
+  return results, noise_spectrum
+
+def EstimateCorrelation(true_signal, results: NDArray)-> float:
+  assert len(true_signal) == results.shape[0], f'Len(signal) is {len(true_signal)}, results.shape is {results.shape}'
+
+  true_signal = np.reshape(true_signal, (-1, 1))
+
+  correlation = np.sum(true_signal*results, axis=0)
+  return np.mean(correlation), np.var(correlation)
+
+def colored_theory_mean(signal_spectrogram, noise_spectrogram):
+  assert signal_spectrogram.shape == noise_spectrogram.shape
+  N = signal_spectrogram.shape[0]
+  return N*np.sum(signal_spectrogram*np.conjugate(signal_spectrogram))
+
+def colored_theory_var(signal_spectrogram, noise_spectrogram):
+  assert signal_spectrogram.shape == noise_spectrogram.shape
+  N = signal_spectrogram.shape[0]
+  return N*N*np.sum(signal_spectrogram*np.conjugate(signal_spectrogram)*
+                      noise_spectrogram*np.conjugate(noise_spectrogram))
+
+
+def colored_noise_simulation(plot_dir: str = '.'):
+  signal_spectrum = np.zeros(N)
+  signal_spectrum[4] = 1
+  signal_spectrum[-4] = 1
+
+  noises = np.asarray([0.25, 0.5, 1, 2, 4])/4
+  signal_level = 3
+  sim_means = []
+  sim_vars = []
+  theory_means = []
+  theory_vars = []
+  for n in noises:
+    test_spectrum = signal_level * signal_spectrum
+    test_signal = make_signal(test_spectrum)
+    results, noise_spectrum = make_experiment(test_signal, 1000, noise_level=n)
+    mean, var = EstimateCorrelation(test_signal, results)
+    sim_means.append(mean)
+    sim_vars.append(var)
+    theory_means.append(colored_theory_mean(test_spectrum, noise_spectrum))
+    theory_vars.append(colored_theory_var(test_spectrum, noise_spectrum))
+  sim_means = np.asarray(sim_means)
+  sim_vars = np.asarray(sim_vars)
+  theory_means = np.asarray(theory_means)
+  theory_vars = np.asarray(theory_vars)
+
+  plt.loglog(noises, theory_means, label='Theoretical Mean')
+  plt.loglog(noises, sim_means, 'x', label='Simulated Mean')
+  plt.loglog(noises, theory_vars, label='Theoretical Variance')
+  # plt.loglog(noises, 1/2*(noises**2 * signal_level**2), label='Theoretical Variance')
+  plt.loglog(noises, sim_vars, 'o', label='Simulated Variance')
+  plt.xlabel('Noise Level');
+  plt.legend()
+  plt.title('Colored Noise Simulation')
+  plt.ylabel('Variance of Correlation Measure')
+  np.mean(sim_means / theory_means), np.mean(sim_vars / theory_vars)
+
+  plt.savefig(os.path.join(plot_dir, 'ColoredNoiseResult.png'))
+
 ##################### Comparing d's    #####################
 
 def compare_dprimes(plot_dir: str = '.'):
