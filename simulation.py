@@ -129,6 +129,8 @@ def simulate_point_process(
     spf_mean_signal = spp_dprimes.copy()
     spf_var_signal = spp_dprimes.copy()
 
+    np.seed(42)
+
     # Estimate measures over different signal levels and number of trials.
     for i, s in enumerate(signal_levels):
       for j, trial_count in enumerate(correlation_trial_count_list):
@@ -763,6 +765,7 @@ def colored_noise_simulation(plot_dir: str = '.'):
   signal_spectrum[4] = 1
   signal_spectrum[-4] = 1
 
+  np.seed(42)
   noises = np.asarray([0.25, 0.5, 1, 2, 4])/4
   signal_level = 3
   sim_means = []
@@ -827,6 +830,7 @@ def create_synthetic_stack(noise_level=1, num_times=1952, num_trials=1026,
         else:
           return envelope
 
+    np.seed(42)
     t = np.arange(num_times) / mouse_sample_rate
     peak_time = 3/(2*np.pi*bw)
     peak_env = gammatone_func(peak_time, cf=0)
