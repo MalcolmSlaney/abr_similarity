@@ -758,6 +758,7 @@ def colored_theory_var(signal_spectrogram, noise_spectrogram):
 
 
 def colored_noise_simulation(plot_dir: str = '.'):
+  N = 128
   signal_spectrum = np.zeros(N)
   signal_spectrum[4] = 1
   signal_spectrum[-4] = 1
