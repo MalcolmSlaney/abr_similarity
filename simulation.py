@@ -859,6 +859,7 @@ def plot_synthetic_stack_example(plot_dir: str = '.'):
   plt.text(190, 1.5, 'Number of Trials')
   plt.text(75, -1.4, 'Time')
   plt.axis('off');
+  plt.savefig(os.path.join(plot_dir, 'WaveformStack.png'), dpi=300)
 
 ##################### Comparing d's    #####################
 
