@@ -11,6 +11,13 @@ from typing import List, Tuple
 # https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html#sklearn.linear_model.Ridge
 from sklearn.linear_model import Ridge, LinearRegression
 
+flags.DEFINE_integer('seed', 42, 'Initial seed for data generation.')
+flags.DEFINE_integer('num_experiments', 1000, 'How many experiments to run.')
+flags.DEFINE_integer('num_jackknife_experiments', 100, 'How many jackknife experiments to run.')
+flags.DEFINE_string('cache_dir', '.', 'Directory to cache simulation results.')
+
+FLAGS = flags.FLAGS
+
 
 # Constants for these Trials
 
@@ -129,7 +136,7 @@ def simulate_point_process(
     spf_mean_signal = spp_dprimes.copy()
     spf_var_signal = spp_dprimes.copy()
 
-    np.seed(42)
+    np.random.seed(FLAGS.seed)
 
     # Estimate measures over different signal levels and number of trials.
     for i, s in enumerate(signal_levels):
@@ -765,7 +772,7 @@ def colored_noise_simulation(plot_dir: str = '.'):
   signal_spectrum[4] = 1
   signal_spectrum[-4] = 1
 
-  np.seed(42)
+  np.random.seed(FLAGS.seed)
   noises = np.asarray([0.25, 0.5, 1, 2, 4])/4
   signal_level = 3
   sim_means = []
@@ -830,7 +837,7 @@ def create_synthetic_stack(noise_level=1, num_times=1952, num_trials=1026,
         else:
           return envelope
 
-    np.seed(42)
+    np.random.seed(FLAGS.seed)
     t = np.arange(num_times) / mouse_sample_rate
     peak_time = 3/(2*np.pi*bw)
     peak_env = gammatone_func(peak_time, cf=0)
@@ -1006,11 +1013,8 @@ def threshold_theory_ratio(plot_dir: str = '.'):
   plt.title('Comparison of sound threshold for power of average vs. covariance')
   plt.savefig(os.path.join(plot_dir, 'AverageVsCovarianceThresholdRatio.png'), dpi=300)
 
-flags.DEFINE_integer('num_experiments', 1000, 'How many experiments to run.')
-flags.DEFINE_integer('num_jackknife_experiments', 100, 'How many jackknife experiments to run.')
-flags.DEFINE_string('cache_dir', '.', 'Directory to cache simulation results.')
+##################### Main Program  #####################
 
-FLAGS = flags.FLAGS
 
 def main(_argv=None):
   # compare_full_partial_correlation()
