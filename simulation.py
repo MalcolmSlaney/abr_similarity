@@ -795,6 +795,65 @@ def colored_noise_simulation(plot_dir: str = '.'):
 
   plt.savefig(os.path.join(plot_dir, 'ColoredNoiseResult.png'))
 
+##################### Waveform Stack Example    #####################
+mouse_sample_rate = 16000
+
+def create_synthetic_stack(noise_level=1, num_times=1952, num_trials=1026,
+                           bw=200, order=4, cf=1000, signal_levels=(0, 1),
+                           sample_rate=mouse_sample_rate):
+    """Create a synthetic stack of ABR recordings so we can investigate d'
+    behaviour for really large number of trials.  This stack has two different
+    (sound pressure) levels.
+
+    Args:
+      noise_level: Amplitude of the white noise signal.
+      num_times: The length of the ABR response in samples
+      num_trials: How many trials to create
+      bw: The bandwidth of the envelope (in Hz)
+      order: the Gammatone order
+      cf: The center frequency of the carrier (in Hz)
+      signal_levels: A list of signal levels to generate
+      sample_rate: What sample rate to generate the signal at
+
+    Returns:
+      a 3d tensor with shape num_levels x num_times x num_trials
+    """
+    def gammatone_func(t, cf=cf, bw=bw, order=order):
+        envelope = t ** (order - 1) * np.exp(-2 * np.pi * bw * t)
+        if cf:
+          return envelope * np.sin(2 * np.pi * cf * t)
+        else:
+          return envelope
+
+    t = np.arange(num_times) / mouse_sample_rate
+    peak_time = 3/(2*np.pi*bw)
+    peak_env = gammatone_func(peak_time, cf=0)
+    gammatone = gammatone_func(t)/peak_env
+    # The shape of the stacks array is levels x time x trials
+    stack = noise_level * np.random.normal(size=(len(signal_levels), num_times, num_trials))
+    signals = np.expand_dims(signal_levels, (1, 2)) * np.expand_dims(gammatone, (0, 2))
+    stack += signals
+    return stack
+
+def plot_synthetic_stack_example(plot_dir: str = '.'):
+  plt.figure()
+  stack = create_synthetic_stack(0.05, 1952, 10);
+  num_points = 150
+  num_waveforms = stack.shape[-1]
+  for i in reversed(range(num_waveforms)):
+    times = np.arange(num_points) + 5*i
+    plt.plot(times, stack[1, :num_points, i] + .4*i)
+  plt.gca().annotate('', xytext=(num_points + 10, 0),
+              xy=(num_points + 5*num_waveforms, .4*(num_waveforms-1)),
+              arrowprops=dict(arrowstyle="->"))
+  plt.gca().annotate('', xytext=(0, -1.1),
+                    xy = (num_points, -1.1),
+                    arrowprops=dict(arrowstyle="->"))
+
+  plt.text(190, 1.5, 'Number of Trials')
+  plt.text(75, -1.4, 'Time')
+  plt.axis('off');
+
 ##################### Comparing d's    #####################
 
 def compare_dprimes(plot_dir: str = '.'):
@@ -913,6 +972,8 @@ def main(_argv=None):
   compare_dprimes(plot_dir=FLAGS.cache_dir)
   multilook_plot(plot_dir=FLAGS.cache_dir)
   threshold_theory_ratio(plot_dir=FLAGS.cache_dir)
+  plot_synthetic_stack_example(plot_dir=FLAGS.cache_dir)
+  colored_noise_simulation(plot_dir=FLAGS.cache_dir)
 
 if __name__ == '__main__':
    app.run(main)
