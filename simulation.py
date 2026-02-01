@@ -783,6 +783,7 @@ def colored_noise_simulation(plot_dir: str = '.'):
   theory_means = np.asarray(theory_means)
   theory_vars = np.asarray(theory_vars)
 
+  plt.figure()
   plt.loglog(noises, theory_means, label='Theoretical Mean')
   plt.loglog(noises, sim_means, 'x', label='Simulated Mean')
   plt.loglog(noises, theory_vars, label='Theoretical Variance')
@@ -874,8 +875,9 @@ def compare_dprimes(plot_dir: str = '.'):
   plt.title('Comparison of Detection Methods')
   plt.savefig(os.path.join(plot_dir, 'DPrimeComparison.png'), dpi=300)
 
+##################### Multilook Histograms #####################
 
-def multilook_plot(plot_dir: str = '.'):
+def XXmultilook_plot(plot_dir: str = '.'):
   # Make a plot show how muliple looks are used.
   def gaussian_scatter(center=(0, 0), r=0.3, count=100) -> NDArray:
     points = np.random.randn(len(center), count)*r
@@ -926,6 +928,65 @@ def multilook_plot(plot_dir: str = '.'):
 
   plt.savefig(os.path.join(plot_dir, 'MultilookDPrimeComparison.png'), dpi=300)
 
+
+# Make a plot show how muliple looks are used.
+def gaussian_scatter(center=(0, 0), r=0.3, count=100) -> NDArray:
+  points = np.random.randn(len(center), count)*r
+  return points + np.expand_dims(np.asarray(center), axis=1)
+
+
+def multilook_plot(plot_dir: str = '.'):
+  count = 4000
+
+  noise_points = gaussian_scatter(center=(0, 0), r=0.3, count=count)
+  signal_points = gaussian_scatter(center=(1, 1), r=0.3, count=count)
+
+  alpha = 0.1
+
+  def show_dist(second_mean, label: str = '', y=250, color='k', ):
+    plt.axvline(0, ls='--', color=color)
+    plt.axvline(second_mean, ls='--', color=color)
+    plt.annotate("", (0, y), (second_mean, y),
+                      arrowprops=dict(arrowstyle="<->", color='black'))
+    plt.text(0.4*second_mean, y+10, label)
+
+  plt.figure(figsize=(10, 10))
+  plt.subplot(2, 2, 1)
+  plt.hist(noise_points[0, :], bins=30, label='Noise')
+  plt.hist(signal_points[0, :], bins=30, label='Signal')
+  plt.xlim(-1, 2)
+  show_dist(1, '1.0')
+  plt.legend()
+  plt.title('Histogram of Look 1')
+
+  plt.subplot(2, 2, 2)
+  projector = np.ones((2, count))/np.sqrt(2)
+  noise_projection = np.sum(noise_points * projector, axis=0)
+  signal_projection = np.sum(signal_points * projector, axis=0)
+  plt.hist(noise_projection, bins=30, label='Noise')
+  plt.hist(signal_projection, bins=30, label='Signal')
+  plt.xlim(-1, 3)
+  show_dist(np.sqrt(2), '1.414')
+  plt.legend()
+  plt.title('Histogram of Projection')
+
+  plt.subplot(2, 2, 3)
+  plt.plot(noise_points[0, :], noise_points[1, :], '.', alpha=alpha)
+  plt.plot(signal_points[0, :], signal_points[1, :], '.', alpha=alpha);
+  plt.plot([-1, 2], [-1, 2], '--')
+  plt.xlim(-1, 2)
+  plt.ylim(-1, 2)
+  plt.title('Scatter of Measurements')
+
+  plt.subplot(2, 2, 4)
+  plt.hist(noise_points[1, :], bins=30, label='Noise')
+  plt.hist(signal_points[1, :], bins=30, label='Signal')
+  plt.xlim(-1, 2)
+  show_dist(1, '1.0')
+  plt.legend();
+  plt.title('Histogram of Look 2');
+
+  plt.savefig(os.path.join(plot_dir, 'MultilookDPrimeComparison.png'), dpi=300)
 
 def threshold_theory_ratio(plot_dir: str = '.'):
   def ratio(d):
