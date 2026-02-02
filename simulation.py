@@ -855,7 +855,8 @@ def plot_synthetic_stack_example(plot_dir: str = '.'):
   num_waveforms = stack.shape[-1]
   for i in reversed(range(num_waveforms)):
     times = np.arange(num_points) + 5*i
-    plt.plot(times, stack[1, :num_points, i] + .4*i)
+    plt.plot(times, stack[1, :num_points, i] + .4*i,
+             alpha=(num_waveforms-i)/num_waveforms))
   plt.gca().annotate('', xytext=(num_points + 10, 0),
               xy=(num_points + 5*num_waveforms, .4*(num_waveforms-1)),
               arrowprops=dict(arrowstyle="->"))
