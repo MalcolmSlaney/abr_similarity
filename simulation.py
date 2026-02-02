@@ -863,7 +863,7 @@ def plot_synthetic_stack_example(plot_dir: str = '.'):
                     xy = (num_points, -1.1),
                     arrowprops=dict(arrowstyle="->"))
 
-  plt.text(190, 1.5, 'Number of Trials')
+  plt.text(150, 1.0, 'Number of Trials (N)')
   plt.text(75, -1.4, 'Time')
   plt.axis('off');
   plt.savefig(os.path.join(plot_dir, 'WaveformStack.png'), dpi=300)
