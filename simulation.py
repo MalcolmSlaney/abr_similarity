@@ -201,10 +201,10 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
                         num_experiments=20) -> Tuple:
   """Run the simulations and plot the results.
   """
-  cache_filename = f'covariance_cache-{default_noise_level}-jackknife_{jackknife}.npz'
-  cache_filename = os.path.join(cache_dir, cache_filename)
-  if os.path.exists(cache_filename):
-    data = np.load(cache_filename)
+  cache_plotfile = f'covariance_cache-{default_noise_level}-jackknife_{jackknife}.npz'
+  cache_plotfile = os.path.join(cache_dir, cache_plotfile)
+  if os.path.exists(cache_plotfile):
+    data = np.load(cache_plotfile)
     spp_dprimes = data['spp_dprimes']
     spp_mean_noise = data['spp_mean_noise']
     spp_mean_signal = data['spp_mean_signal']
@@ -224,7 +224,7 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
     spf_var_signal = data['spf_var_signal']
 
     signal_levels = data['signal_levels']
-    print(f'Loaded simulation results from {cache_filename}.')
+    print(f'Loaded simulation results from {cache_plotfile}.')
   else:
     # Just do the highest signal level, and the highest trial count,
     # to make sure the code works.
@@ -242,7 +242,7 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
       num_experiments=num_experiments,
       jackknife=jackknife,
     )
-    np.savez(cache_filename,
+    np.savez(cache_plotfile,
              spp_dprimes=spp_dprimes,
              spp_mean_noise=spp_mean_noise,
              spp_mean_signal=spp_mean_signal,
@@ -265,7 +265,7 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
              jackknife=jackknife,
              datetime=str(datetime.now()),
              )
-    print('Saving simulation results to', cache_filename)
+    print('Saving simulation results to', cache_plotfile)
   return (
     spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
     spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
@@ -274,7 +274,9 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
 
 
 
-def compare_full_partial_correlation(plot_dir: str = '.'):
+def compare_full_partial_correlation(plot_dir: str = '.', 
+                                     figsize=(6.4, 4.8),
+                                     plotfile='FullVsPartialCovariance.png'):
   """Compare the full covariance and partial (matched filter) covariance distributions.
   """
   n=1.2
@@ -295,7 +297,7 @@ def compare_full_partial_correlation(plot_dir: str = '.'):
     mf_prod = w[:, i] * np.mean(w[:, i], axis=0)
     mf_cov[:, i] = mf_prod.reshape(N)
 
-  plt.figure(figsize=(4, 3))
+  plt.figure(figsize=figsize)
 
   bins = 50
   counts, edges = np.histogram(full_cov.reshape(-1), bins=50)
@@ -317,7 +319,7 @@ def compare_full_partial_correlation(plot_dir: str = '.'):
   print(f'Partial mean: theory {s**2+n**2/N}, simulation {np.mean(mf_cov.reshape(-1))}')
   print(f'Partial var: theory {(1+3/N)*s**2*n**2 + (N+1)*n**4/N**2}, simulation {np.var(mf_cov.reshape(-1))}')
 
-  plt.savefig(os.path.join(plot_dir, 'FullVsPartialCovariance.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 
 ######################## Single Point Power Metric Simulation ########################
@@ -340,8 +342,11 @@ d * ( ( 2 + ( d )**( 2 ) ) )**( 1/2 ) * ( n )**( 2 ) * numtrials ) )**( \
 1/2 )
 
 
-def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir: str = '.'):
-  plt.figure(figsize=(16, 5))
+def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, 
+                   figsize=(6.4, 4.8), 
+                   plotfile='SinglePointPowerStats.png',
+                   plot_dir: str = '.'):
+  plt.figure(figsize=figsize)
 
   plt.subplot(3, 2, 1)
   plt.plot(signal_levels, np.asarray(spp_mean_signal)[:, -1], 'x', label='Simulation')
@@ -412,7 +417,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir: str =
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig(os.path.join(plot_dir, 'SinglePointPowerStats.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 
 ######################## Single Point Covariance Metric Simulation ########################
@@ -431,7 +436,10 @@ def spc_theory_dprime(s, n, numtrials):
 2 ) ) )**( -1/2 )
 
 
-def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimesi, plot_dir: str = '.'):
+def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes, 
+                   plotfile='SinglePointMatchedFilterStats.png',
+                   figsize=(6.4, 4.8),
+                   plot_dir: str = '.'):
   n = default_noise_level
 
   plt.figure(figsize=(16, 5))
@@ -506,7 +514,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimesi, plot_dir: str 
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig(os.path.join(plot_dir, 'SinglePointMatchedFilterStats.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 ######################## Single Point Full Covariance Metric Simulation ########################
 
@@ -528,10 +536,12 @@ def spf_theory_dprime(s, n, N):
       np.sqrt((spf_theory_var(s, n, N) + spf_theory_var(0, n, N))/2))
 
 
-def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes, plot_dir: str = '.'):
+def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes, 
+                   figsize=(6.4, 4.8), 
+                   plotfile='SinglePointFullCovarianceStats.png'):
   n = default_noise_level
 
-  plt.figure(figsize=(16, 5))
+  plt.figure(figsize=figsize)
 
   plt.subplot(3, 2, 1)
   plt.plot(signal_levels, np.asarray(spf_mean_signal)[:, -1], 'x', label='Simulation')
@@ -601,7 +611,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes, plot_dir: str =
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig(os.path.join(plot_dir, 'SinglePointFullCovarianceStats.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 ##################### Single Point Jackknife (SPJ Stats #####################
 # spj is single point correlation via jackknife
@@ -623,11 +633,13 @@ s )**( 2 ) * ( ( 2 * ( n )**( 2 ) + numtrials * ( s )**( 2 ) ) )**( \
 -1/2 )
 
 
-def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir: str = '.'):
+def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, 
+                   figsize=(6.4, 4.8), 
+                   plotfile='SinglePointJackknifeStats.png', 
+                   plot_dir: str = '.'):
   n = default_noise_level
 
-  plt.figure(figsize=(18, 8))
-
+  plt.figure(figsize=figsize)
   plt.subplot(3, 2, 1)
   plt.plot(signal_levels, np.asarray(spj_mean_signal)[:, -1], 'x', label='Simulation')
   s = np.asarray(signal_levels)
@@ -698,7 +710,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir: str =
   plt.legend();
   plt.xlabel('Number of Trials');
 
-  plt.savefig(os.path.join(plot_dir,'SinglePointJackknifeStats.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 ##################### Colored Noise - Fouier Approach #####################
 def make_basis(N) -> NDArray:
@@ -766,7 +778,9 @@ def colored_theory_var(signal_spectrogram, noise_spectrogram):
                       noise_spectrogram*np.conjugate(noise_spectrogram))
 
 
-def colored_noise_simulation(plot_dir: str = '.'):
+def colored_noise_simulation(figsize=(6.4, 4.8), 
+                             plotfile: str = 'ColoredNoiseResult.png',
+                             plot_dir: str = '.'):
   N = 128
   signal_spectrum = np.zeros(N)
   signal_spectrum[4] = 1
@@ -805,7 +819,7 @@ def colored_noise_simulation(plot_dir: str = '.'):
   plt.ylabel('Variance of Correlation Measure')
   np.mean(sim_means / theory_means), np.mean(sim_vars / theory_vars)
 
-  plt.savefig(os.path.join(plot_dir, 'ColoredNoiseResult.png'))
+  plt.savefig(os.path.join(plot_dir, plotfile))
 
 ##################### Waveform Stack Example    #####################
 mouse_sample_rate = 16000
@@ -856,7 +870,7 @@ def plot_synthetic_stack_example(plot_dir: str = '.'):
   for i in reversed(range(num_waveforms)):
     times = np.arange(num_points) + 5*i
     plt.plot(times, stack[1, :num_points, i] + .4*i,
-             alpha=(num_waveforms-i)/num_waveforms))
+             alpha=(num_waveforms-i)/num_waveforms)
   plt.gca().annotate('', xytext=(num_points + 10, 0),
               xy=(num_points + 5*num_waveforms, .4*(num_waveforms-1)),
               arrowprops=dict(arrowstyle="->"))
@@ -871,11 +885,13 @@ def plot_synthetic_stack_example(plot_dir: str = '.'):
 
 ##################### Comparing d's    #####################
 
-def compare_dprimes(plot_dir: str = '.'):
+def compare_dprimes(figsize=(6.4, 4.8), 
+                    plotfile: str = 'DPrimeComparison.png',
+                    plot_dir: str = '.'):
   N = (2**np.arange(4, 8, 0.25)).astype(float)
   s = 3.1
   n = 1
-  plt.figure()
+  plt.figure(figsize=figsize)
   plt.loglog(N, spj_theory_dprime(s, n, N)*np.sqrt(N), label='Multilook Jackknife')
   plt.loglog(N, spp_dprime(s, n, N), label='Power of Average')
   plt.loglog(N, spj_theory_dprime(s, n, N), label='Jackknife (single trial)')
@@ -886,7 +902,7 @@ def compare_dprimes(plot_dir: str = '.'):
   plt.legend()
   plt.ylim(2, 50)
   plt.title('Comparison of Detection Methods')
-  plt.savefig(os.path.join(plot_dir, 'DPrimeComparison.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 ##################### Multilook Histograms #####################
 
@@ -948,7 +964,8 @@ def gaussian_scatter(center=(0, 0), r=0.3, count=100) -> NDArray:
   return points + np.expand_dims(np.asarray(center), axis=1)
 
 
-def multilook_plot(plot_dir: str = '.'):
+def multilook_plot(plot_dir: str = '.', figsize=(6.4, 4.8),
+                   plotfile='MultilookDPrimeComparison.png'):
   count = 4000
 
   noise_points = gaussian_scatter(center=(0, 0), r=0.3, count=count)
@@ -963,7 +980,7 @@ def multilook_plot(plot_dir: str = '.'):
                       arrowprops=dict(arrowstyle="<->", color='black'))
     plt.text(0.4*second_mean, y+10, label)
 
-  plt.figure(figsize=(10, 10))
+  plt.figure(figsize=figsize)
   plt.subplot(2, 2, 1)
   plt.hist(noise_points[0, :], bins=30, label='Noise')
   plt.hist(signal_points[0, :], bins=30, label='Signal')
@@ -999,20 +1016,22 @@ def multilook_plot(plot_dir: str = '.'):
   plt.legend();
   plt.title('Histogram of Look 2');
 
-  plt.savefig(os.path.join(plot_dir, 'MultilookDPrimeComparison.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plotfile=plotfile), dpi=300)
 
-def threshold_theory_ratio(plot_dir: str = '.'):
+def threshold_theory_ratio(figsize=(6.4, 4.8), 
+                           plotfile='AverageVsCovarianceThresholdRatio.png',
+                           plot_dir: str = '.'):
   def ratio(d):
     return 2 * ( ( d + ( ( 2 + ( d )**( 2 ) ) )**( 1/2 ) ) )**( 1/2 ) * ( ( d + ( \
            ( 16 + ( d )**( 2 ) ) )**( 1/2 ) ) )**( -1/2 )
 
-  plt.figure()
+  plt.figure(figsize=figsize)
   d = 10**(np.arange(-2, 2, .01))
   plt.semilogx(d, ratio(d))
   plt.xlabel('d\'')
   plt.ylabel('Power of average threshold / covariance threshold')
   plt.title('Comparison of sound threshold for power of average vs. covariance')
-  plt.savefig(os.path.join(plot_dir, 'AverageVsCovarianceThresholdRatio.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 ##################### Main Program  #####################
 
