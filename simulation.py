@@ -201,10 +201,10 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
                         num_experiments=20) -> Tuple:
   """Run the simulations and plot the results.
   """
-  cache_plotfile = f'covariance_cache-{default_noise_level}-jackknife_{jackknife}.npz'
-  cache_plotfile = os.path.join(cache_dir, cache_plotfile)
-  if os.path.exists(cache_plotfile):
-    data = np.load(cache_plotfile)
+  cache_filename = f'covariance_cache-{default_noise_level}-jackknife_{jackknife}.npz'
+  cache_filename = os.path.join(cache_dir, cache_filename)
+  if os.path.exists(cache_filename):
+    data = np.load(cache_filename)
     spp_dprimes = data['spp_dprimes']
     spp_mean_noise = data['spp_mean_noise']
     spp_mean_signal = data['spp_mean_signal']
@@ -224,7 +224,7 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
     spf_var_signal = data['spf_var_signal']
 
     signal_levels = data['signal_levels']
-    print(f'Loaded simulation results from {cache_plotfile}.')
+    print(f'Loaded simulation results from {cache_filename}.')
   else:
     # Just do the highest signal level, and the highest trial count,
     # to make sure the code works.
@@ -242,7 +242,7 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
       num_experiments=num_experiments,
       jackknife=jackknife,
     )
-    np.savez(cache_plotfile,
+    np.savez(cache_filename,
              spp_dprimes=spp_dprimes,
              spp_mean_noise=spp_mean_noise,
              spp_mean_signal=spp_mean_signal,
@@ -265,7 +265,7 @@ def get_simulation_data(cache_dir: str = '.', jackknife: bool = False,
              jackknife=jackknife,
              datetime=str(datetime.now()),
              )
-    print('Saving simulation results to', cache_plotfile)
+    print('Saving simulation results to', cache_filename)
   return (
     spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
     spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
@@ -1016,7 +1016,7 @@ def multilook_plot(plot_dir: str = '.', figsize=(6.4, 4.8),
   plt.legend();
   plt.title('Histogram of Look 2');
 
-  plt.savefig(os.path.join(plot_dir, plotfile=plotfile), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 def threshold_theory_ratio(figsize=(6.4, 4.8), 
                            plotfile='AverageVsCovarianceThresholdRatio.png',
