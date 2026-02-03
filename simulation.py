@@ -357,6 +357,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes,
   plt.plot(signal_levels, spp_mean(s, n, N), label='Theory')
   plt.title(f'Power {N} trials')
   plt.ylabel('Mean')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   plt.subplot(3, 2, 2);
@@ -368,6 +369,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes,
   plt.semilogx(N, spp_mean(s, n, N), label='Theory')
   plt.axhline(s*s, ls='--', label='Asymptote')
   plt.title(f'Power s={s:4.2f}');
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -379,6 +381,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes,
   N = correlation_trial_count_list[-1]
   plt.plot(signal_levels, 4*s*s*n*n/N+2*n**4/N**2, label='Theory')
   plt.ylabel('Variance')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   plt.subplot(3, 2, 4);
@@ -388,6 +391,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes,
   d = spp_d_threshold
   N = correlation_trial_count_list
   plt.semilogx(N, 4*s*s*n*n/N+2*n**4/N**2, label='Theory')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   ##################### Now plot the d's #####################
@@ -443,7 +447,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes,
                    plot_dir: str = '.'):
   n = default_noise_level
 
-  plt.figure(figsize=(16, 5))
+  plt.figure(figsize=figsize))
 
   plt.subplot(3, 2, 1)
   plt.plot(signal_levels, np.asarray(spc_mean_signal)[:, -1], 'x', label='Simulation')
@@ -455,6 +459,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes,
           label='Theory')
   plt.title(f'Matched Filter {N} trials')
   plt.ylabel('Mean')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   plt.subplot(3, 2, 2);
@@ -465,6 +470,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes,
   plt.semilogx(N, spc_theory_mean(s, n, N), label='Theory')
   plt.axhline(s*s, ls='--', label='Asymptote')
   plt.title(f'Matched Filter s={s:4.2f}');
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -475,6 +481,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes,
   N = correlation_trial_count_list[-1]
   plt.plot(signal_levels, spc_theory_var(s, n, N), label='Theory')
   plt.ylabel('Variance')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   plt.subplot(3, 2, 4);
@@ -484,6 +491,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes,
   N = correlation_trial_count_list
   plt.semilogx(N, spc_theory_var(s, n, N), label='Theory')
   plt.axhline(s*s*n*n, label='Asymptote')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   ##################### Now plot the d's #####################
@@ -556,6 +564,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes,
           label='Theory')
   plt.title(f'Full Covariance {N} trials')
   plt.ylabel('Mean')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   plt.subplot(3, 2, 2);
@@ -566,6 +575,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes,
   plt.semilogx(N, spf_theory_mean(s, n, N), label='Theory')
   plt.axhline(s*s, ls='--', label='Asymptote')
   plt.title(f'Full Covariance s={s:4.2f}');
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -585,6 +595,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes,
   N = correlation_trial_count_list
   plt.semilogx(N, spf_theory_var(s, n, N), label='Theory')
   # plt.axhline(s*s*n*n, label='Asymptote')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   ##################### Now plot the d's #####################
