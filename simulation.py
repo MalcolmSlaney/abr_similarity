@@ -355,7 +355,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes,
   d = spp_d_threshold
   N = correlation_trial_count_list[-1]
   plt.plot(signal_levels, spp_mean(s, n, N), label='Theory')
-  plt.title(f'Power Stats for {N} trials')
+  plt.title(f'Power {N} trials')
   plt.ylabel('Mean')
   plt.legend()
 
@@ -367,7 +367,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes,
   N = correlation_trial_count_list
   plt.semilogx(N, spp_mean(s, n, N), label='Theory')
   plt.axhline(s*s, ls='--', label='Asymptote')
-  plt.title(f'Power Stats for Signal Level s={s:4.2f}');
+  plt.title(f'Power s={s:4.2f}');
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -417,6 +417,7 @@ def plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes,
   plt.legend();
   plt.xlabel('Number of Trials');
 
+  plt.axis('tight')
   plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 
@@ -452,7 +453,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes,
   plt.plot(signal_levels,
           spc_theory_mean(signal_levels, default_noise_level, N),
           label='Theory')
-  plt.title(f'Matched Filter Stats for {N} trials')
+  plt.title(f'Matched Filter {N} trials')
   plt.ylabel('Mean')
   plt.legend()
 
@@ -463,7 +464,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes,
   N = correlation_trial_count_list
   plt.semilogx(N, spc_theory_mean(s, n, N), label='Theory')
   plt.axhline(s*s, ls='--', label='Asymptote')
-  plt.title(f'Matched Filter Stats for Signal Level s={s:4.2f}');
+  plt.title(f'Matched Filter s={s:4.2f}');
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -514,6 +515,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes,
   plt.legend();
   plt.xlabel('Number of Trials');
 
+  plt.axis('tight')
   plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 ######################## Single Point Full Covariance Metric Simulation ########################
@@ -538,6 +540,7 @@ def spf_theory_dprime(s, n, N):
 
 def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes, 
                    figsize=(6.4, 4.8), 
+                   plot_dir: str = '.',
                    plotfile='SinglePointFullCovarianceStats.png'):
   n = default_noise_level
 
@@ -551,7 +554,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes,
   plt.plot(signal_levels,
           spf_theory_mean(signal_levels, default_noise_level, N),
           label='Theory')
-  plt.title(f'Full Covariance Stats for {N} trials')
+  plt.title(f'Full Covariance {N} trials')
   plt.ylabel('Mean')
   plt.legend()
 
@@ -562,7 +565,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes,
   N = correlation_trial_count_list
   plt.semilogx(N, spf_theory_mean(s, n, N), label='Theory')
   plt.axhline(s*s, ls='--', label='Asymptote')
-  plt.title(f'Full Covariance Stats for Signal Level s={s:4.2f}');
+  plt.title(f'Full Covariance s={s:4.2f}');
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -611,6 +614,7 @@ def plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes,
   plt.legend();
   plt.xlabel('Number of Trials');
 
+  plt.axis('tight')
   plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 ##################### Single Point Jackknife (SPJ Stats #####################
@@ -648,7 +652,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes,
   plt.plot(signal_levels,
           spj_theory_mean(signal_levels, default_noise_level, N),
           label='Theory')
-  plt.title(f'Jackknife Stats for {N} trials')
+  plt.title(f'Jackknife {N} trials')
   plt.ylabel('Mean')
   plt.legend()
 
@@ -659,7 +663,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes,
   N = correlation_trial_count_list
   plt.semilogx(N, spj_theory_mean(s, n, N)*np.ones(len(N)), label='Theory')
   plt.axhline(s*s, ls=':', label='Asymptote')
-  plt.title(f'Jackknife Stats for Signal Level s={s:4.2f}');
+  plt.title(f'Jackknife s={s:4.2f}');
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -710,6 +714,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes,
   plt.legend();
   plt.xlabel('Number of Trials');
 
+  plt.axis('tight')
   plt.savefig(os.path.join(plot_dir, plotfile), dpi=300)
 
 ##################### Colored Noise - Fouier Approach #####################
