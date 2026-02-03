@@ -447,7 +447,7 @@ def plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes,
                    plot_dir: str = '.'):
   n = default_noise_level
 
-  plt.figure(figsize=figsize))
+  plt.figure(figsize=figsize)
 
   plt.subplot(3, 2, 1)
   plt.plot(signal_levels, np.asarray(spc_mean_signal)[:, -1], 'x', label='Simulation')
