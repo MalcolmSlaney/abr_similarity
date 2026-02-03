@@ -654,6 +654,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes,
           label='Theory')
   plt.title(f'Jackknife {N} trials')
   plt.ylabel('Mean')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   plt.subplot(3, 2, 2);
@@ -664,6 +665,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes,
   plt.semilogx(N, spj_theory_mean(s, n, N)*np.ones(len(N)), label='Theory')
   plt.axhline(s*s, ls=':', label='Asymptote')
   plt.title(f'Jackknife s={s:4.2f}');
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   ##################### Now plot the Variances  #####################
@@ -674,6 +676,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes,
   N = correlation_trial_count_list[-1]
   plt.plot(signal_levels, spj_theory_var(s, n, N), label='Theory')
   plt.ylabel('Variance')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   plt.subplot(3, 2, 4);
@@ -683,6 +686,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes,
   N = correlation_trial_count_list
   plt.semilogx(N, spj_theory_var(s, n, N), label='Theory')
   plt.axhline(s*s*n*n, label='Asymptote', ls=':')
+  plt.gca().set(xticklabels=[])
   plt.legend()
 
   ##################### Now plot the d's #####################
@@ -1053,8 +1057,8 @@ def main(_argv=None):
                                         jackknife=False)
 
   plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir=FLAGS.cache_dir)
-  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir=FLAGS.cache_dir)
-  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir=FLAGS.cache_dir)
+  plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes, plot_dir=FLAGS.cache_dir)
+  plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes, plot_dir=FLAGS.cache_dir)
 
   (_, _, _, _, _,
    spj_dprimes, spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
