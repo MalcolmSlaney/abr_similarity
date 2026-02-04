@@ -215,7 +215,18 @@ def spectral_advantage_plot(freqs, original_powers, filtered_powers,
   plt.ylabel('Filtered Power (dB)')
   plt.title('Original vs. Filtered Power')
   plt.savefig(os.path.join(plot_dir, plot_file_name), dpi=300)
+  
+  plt.figure(figsize=figsize)
+  plt.plot(10*np.log10(original_powers), 10*np.log10(original_powers) - 10*np.log10(filtered_powers), 'x')
+  plt.xlabel('Original Power (dB) for S1 Preparations')
+  plt.ylabel('Noise Reduction (dB)')
+  plt.title('Noise Reduction Due to Matched Filtering')
+  plot_file_name = plot_file_name.replace('.png', '2.png')
+  plt.savefig(os.path.join(plot_dir, plot_file_name), dpi=300)
+
   return np.mean(10*np.log10(original_powers) - 10*np.log10(filtered_powers))
+
+
 
 flags.DEFINE_string('data_dir', 'Data/Bidelman', 'Directory containing Bidelman ABR data files.')
 flags.DEFINE_string('plot_dir', 'Plots', 'Directory to save plots.')

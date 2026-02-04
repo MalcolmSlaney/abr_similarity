@@ -648,6 +648,12 @@ s )**( 2 ) * ( ( 2 * ( n )**( 2 ) + numtrials * ( s )**( 2 ) ) )**( \
 -1/2 )
 
 
+def spj_theory_threshold(s, n, d, numtrials):
+  return 1/2 * ( d )**( 1/2 ) * n * ( ( -1 + numtrials ) )**( -1/2 ) * ( \
+numtrials )**( -1/4 ) * ( ( d * ( numtrials )**( 1/2 ) + ( ( -16 + ( \
+16 + ( d )**( 2 ) ) * numtrials ) )**( 1/2 ) ) )**( 1/2 )
+
+
 def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, 
                    figsize=(6.4, 4.8), 
                    plot_file='SinglePointJackknifeStats.png', 
@@ -1053,6 +1059,16 @@ def threshold_theory_ratio(figsize=(6.4, 4.8),
   plt.ylabel('Power of average threshold / covariance threshold')
   plt.title('Comparison of sound threshold for power of average vs. covariance')
   plt.savefig(os.path.join(plot_dir, plot_file), dpi=300)
+
+  plt.figure(figsize=figsize)
+  dprimes = 10**np.arange(-2, 2, 0.25)
+  plt.loglog(dprimes, spj_theory_threshold(1, 1, dprimes, 1e6), label='Jackknife Matched Filter')
+  plt.loglog(dprimes, spp_threshold(1, 1, dprimes, 1e6), label='Power of the Average')
+  plt.legend();
+  plt.title('Detection vs. d\'')
+  plt.ylabel('Lowest Detectable Signal')
+  plt.xlabel('d\'')
+  plt.savefig(os.path.join(plot_dir, plot_file.replace('.png', '2.png')), dpi=300)
 
 ##################### Main Program  #####################
 
