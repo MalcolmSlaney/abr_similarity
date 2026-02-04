@@ -173,8 +173,10 @@ def compute_advantage(curry_list) -> Tuple[NDArray, NDArray]:
 ##################### Plotting Routine #####################
 
 def plot_spectral_profiles(freqs, db_spectrum, noise_freqs, noise_db_spectrum, 
+                           figsize=(6.4, 4.8),
+                           plot_name: str = 'SpectralComparison.png',
                            plot_dir: str = '.'):
-  plt.figure(figsize=(10, 6))
+  plt.figure(figsize=figsize)
   plt.plot(freqs, db_spectrum, label='Signal')
   plt.plot(noise_freqs, noise_db_spectrum, label='Noise')
 
@@ -186,31 +188,33 @@ def plot_spectral_profiles(freqs, db_spectrum, noise_freqs, noise_db_spectrum,
 
   plt.axvline(90, ls='--')
   plt.axvline(2000, ls='--');
-  plt.savefig(os.path.join(plot_dir, 'SpectralComparison.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plot_name), dpi=300)
 
 def spectral_advantage_plot(freqs, original_powers, filtered_powers, 
                           db_spectrum, noise_freqs, noise_db_spectrum,
+                          figsize=(6.4, 4.8), 
+                          plot_file_name: str = 'SpectralAdvantageScatter.png',
                           plot_dir: str = '.')-> float:
-  plt.figure(figsize=(10, 4))
-  plt.subplot(1, 2, 1)
-  plt.plot(freqs, db_spectrum, label='Signal')
-  plt.plot(noise_freqs, noise_db_spectrum, label='Noise')
+  plt.figure(figsize=figsize)
+  # plt.subplot(1, 2, 1)
+  # plt.plot(freqs, db_spectrum, label='Signal')
+  # plt.plot(noise_freqs, noise_db_spectrum, label='Noise')
 
-  plt.xlabel('Frequency (Hz)')
-  plt.ylabel('Magnitude (dB)')
-  plt.title('Spectral Profile: Signal vs. Noise')
-  plt.legend()
-  plt.grid(True)
+  # plt.xlabel('Frequency (Hz)')
+  # plt.ylabel('Magnitude (dB)')
+  # plt.title('Spectral Profile: Signal vs. Noise')
+  # plt.legend()
+  # plt.grid(True)
 
-  plt.axvline(90, ls='--')
-  plt.axvline(2000, ls='--');
+  # plt.axvline(90, ls='--')
+  # plt.axvline(2000, ls='--');
 
-  plt.subplot(1, 2, 2)
+  # plt.subplot(1, 2, 2)
   plt.plot(10*np.log10(original_powers), 10*np.log10(filtered_powers), 'x')
   plt.xlabel('Original Power (dB)')
   plt.ylabel('Filtered Power (dB)')
   plt.title('Original vs. Filtered Power')
-  plt.savefig(os.path.join(plot_dir, 'SpectralAdvantageScatter.png'), dpi=300)
+  plt.savefig(os.path.join(plot_dir, plot_file_name), dpi=300)
   return np.mean(10*np.log10(original_powers) - 10*np.log10(filtered_powers))
 
 flags.DEFINE_string('data_dir', 'Data/Bidelman', 'Directory containing Bidelman ABR data files.')

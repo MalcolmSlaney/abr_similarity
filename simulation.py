@@ -1019,7 +1019,7 @@ def multilook_plot(plot_dir: str = '.', figsize=(6.4, 4.8),
   plt.xlim(-1, 3)
   show_dist(np.sqrt(2), '1.414')
   plt.legend()
-  plt.title('Histogram of Projection')
+  plt.title('Histogram of Joint Projection')
 
   plt.subplot(2, 2, 3)
   plt.plot(noise_points[0, :], noise_points[1, :], '.', alpha=alpha)
@@ -1027,7 +1027,7 @@ def multilook_plot(plot_dir: str = '.', figsize=(6.4, 4.8),
   plt.plot([-1, 2], [-1, 2], '--')
   plt.xlim(-1, 2)
   plt.ylim(-1, 2)
-  plt.title('Scatter of Measurements')
+  plt.xlabel('Scatter of Measurements')
 
   plt.subplot(2, 2, 4)
   plt.hist(noise_points[1, :], bins=30, label='Noise')
@@ -1035,7 +1035,7 @@ def multilook_plot(plot_dir: str = '.', figsize=(6.4, 4.8),
   plt.xlim(-1, 2)
   show_dist(1, '1.0')
   plt.legend();
-  plt.title('Histogram of Look 2');
+  plt.xlabel('Histogram of Look 2');
 
   plt.savefig(os.path.join(plot_dir, plot_file), dpi=300)
 
