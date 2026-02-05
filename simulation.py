@@ -849,6 +849,14 @@ def colored_noise_simulation(figsize=(6.4, 4.8),
 ##################### Waveform Stack Example    #####################
 mouse_sample_rate = 16000
 
+def gammatone_func(t, cf=1000, bw=200, order=4):
+    envelope = t ** (order - 1) * np.exp(-2 * np.pi * bw * t)
+    if cf:
+      return envelope * np.sin(2 * np.pi * cf * t)
+    else:
+      return envelope
+
+
 def create_synthetic_stack(noise_level=1, num_times=1952, num_trials=1026,
                            bw=200, order=4, cf=1000, signal_levels=(0, 1),
                            sample_rate=mouse_sample_rate):
@@ -869,13 +877,6 @@ def create_synthetic_stack(noise_level=1, num_times=1952, num_trials=1026,
     Returns:
       a 3d tensor with shape num_levels x num_times x num_trials
     """
-    def gammatone_func(t, cf=cf, bw=bw, order=order):
-        envelope = t ** (order - 1) * np.exp(-2 * np.pi * bw * t)
-        if cf:
-          return envelope * np.sin(2 * np.pi * cf * t)
-        else:
-          return envelope
-
     np.random.seed(FLAGS.seed)
     t = np.arange(num_times) / mouse_sample_rate
     peak_time = 3/(2*np.pi*bw)
@@ -909,6 +910,22 @@ def plot_synthetic_stack_example(figsize=(6.4, 4.8),
   plt.text(75, -1.4, 'Time')
   plt.axis('off');
   plt.savefig(os.path.join(plot_dir, plot_file), dpi=300)
+
+  plt.figure(figsize=figsize)
+  num_times = 1952
+  mouse_sample_rate = 16000
+  t = np.arange(150) / mouse_sample_rate
+  bw = 200
+  scales = [0, 0.5, 1]
+  peak_time = 3/(2*np.pi*bw)
+  peak_env = gammatone_func(peak_time, cf=0)
+  for i in range(len(scales)):
+    scale = scales[i]
+    gt = gammatone_func(t)/peak_env
+    plt.plot(t, gt + np.random.randn(len(t))*i*i/3 + 4*(2-i))
+  plt.axis('off');
+  plt.savefig(os.path.join(plot_dir, plot_file.replace('.png', '2.png')), dpi=300)
+
 
 ##################### Comparing d's    #####################
 
@@ -1068,6 +1085,8 @@ def threshold_theory_ratio(figsize=(6.4, 4.8),
   plt.title('Detection vs. d\'')
   plt.ylabel('Lowest Detectable Signal')
   plt.xlabel('d\'')
+  plt.annotate('1.2x difference', (2.7e-2, 2e-4), (1e-2, 8e-4), arrowprops=dict(arrowstyle='->'))
+  plt.annotate('2x difference', (10, 1.5e-2), (4.25, .05), arrowprops=dict(arrowstyle='->'));
   plt.savefig(os.path.join(plot_dir, plot_file.replace('.png', '2.png')), dpi=300)
 
 ##################### Main Program  #####################
