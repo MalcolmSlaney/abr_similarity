@@ -217,10 +217,13 @@ def spectral_advantage_plot(freqs, original_powers, filtered_powers,
   plt.savefig(os.path.join(plot_dir, plot_file_name), dpi=300)
   
   plt.figure(figsize=figsize)
-  plt.plot(10*np.log10(original_powers), 10*np.log10(original_powers) - 10*np.log10(filtered_powers), 'x')
-  plt.xlabel('Original Power (dB) for S1 Preparations')
+  power_reduction = 10*np.log10(original_powers) - 10*np.log10(filtered_powers)
+  plt.plot(10*np.log10(original_powers), power_reduction, 'x')
+  plt.xlabel('Original Noise Power (dB) for S1 Preparations')
   plt.ylabel('Noise Reduction (dB)')
   plt.title('Noise Reduction Due to Matched Filtering')
+  plt.ylim(0, 5.5)
+  plt.axhline(np.mean(power_reduction), ls='--', color='blue')
   plot_file_name = plot_file_name.replace('.png', '2.png')
   plt.savefig(os.path.join(plot_dir, plot_file_name), dpi=300)
 
