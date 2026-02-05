@@ -1079,8 +1079,8 @@ def threshold_theory_ratio(figsize=(6.4, 4.8),
 
   plt.figure(figsize=figsize)
   dprimes = 10**np.arange(-2, 2, 0.25)
-  plt.loglog(dprimes, spp_threshold(1, 1, dprimes, 1e6), label='Power of the Average')
-  plt.loglog(dprimes, spj_theory_threshold(1, 1, dprimes, 1e6), label='Jackknife Matched Filter')
+  plt.loglog(dprimes, spp_threshold(1, 1, dprimes, 1e3), label='Power of the Average')
+  plt.loglog(dprimes, spj_theory_threshold(1, 1, dprimes, 1e3), label='Jackknife Matched Filter')
   plt.legend();
   plt.title('Detection vs. d\'')
   plt.ylabel('Lowest Detectable Signal')
