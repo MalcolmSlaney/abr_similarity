@@ -1085,8 +1085,8 @@ def threshold_theory_ratio(figsize=(6.4, 4.8),
   plt.title('Detection vs. d\'')
   plt.ylabel('Lowest Detectable Signal')
   plt.xlabel('d\'')
-  plt.annotate('1.2x difference', (2.7e-2, 2e-4), (1e-2, 8e-4), arrowprops=dict(arrowstyle='->'))
-  plt.annotate('2x difference', (10, 1.5e-2), (4.25, .05), arrowprops=dict(arrowstyle='->'));
+  plt.annotate('1.2x difference', (2.7e-2, .7e-2), (1e-2, 3e-2), arrowprops=dict(arrowstyle='->'))
+  plt.annotate('2x difference', (10, 2e-1), (4.0, .05), arrowprops=dict(arrowstyle='->'));
   plt.savefig(os.path.join(plot_dir, plot_file.replace('.png', '2.png')), dpi=300)
 
 ##################### Main Program  #####################
