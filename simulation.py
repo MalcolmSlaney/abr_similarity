@@ -14,7 +14,12 @@ from sklearn.linear_model import Ridge, LinearRegression
 flags.DEFINE_integer('seed', 42, 'Initial seed for data generation.')
 flags.DEFINE_integer('num_experiments', 1000, 'How many experiments to run.')
 flags.DEFINE_integer('num_jackknife_experiments', 100, 'How many jackknife experiments to run.')
-flags.DEFINE_string('cache_dir', '.', 'Directory to cache simulation results.')
+flags.DEFINE_string('cache_dir', 'results', 'Directory to cache simulation results.')
+flags.DEFINE_enum(
+  'tests', 'all',
+  ['all', 'single_point', 'jackknife', 'misc',  'colored_noise'],
+  'Which tests to run')
+
 
 FLAGS = flags.FLAGS
 
@@ -738,7 +743,7 @@ def plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes,
   plt.axis('tight')
   plt.savefig(os.path.join(plot_dir, plot_file), dpi=300)
 
-##################### Colored Noise - Fouier Approach #####################
+##################### Colored Noise - Fourier Approach #####################
 def make_basis(N) -> NDArray:
   """Make a set of cosine basis functions"""
   assert np.floor(np.log2(N)) == np.log2(N)
@@ -750,37 +755,42 @@ def make_basis(N) -> NDArray:
 
 def make_signal(spectrum: NDArray) -> NDArray:
   """Given a Fourier spectrum, invert the FFT to get a real time-domain waveform."""
-  N = len(spectrum)
-  return np.real(np.fft.ifft(spectrum))*N
+  num_samples = len(spectrum)
+  return np.real(np.fft.ifft(spectrum))
 
 def make_hermitian(s: NDArray) -> NDArray:
   """Flip the positive frequency part of the spectrum (first half) to get the
   negative frequencies (2nd half)
   """
-  N = (len(s)-1)*2
-  assert np.floor(np.log2(N)) == np.log2(N)
-  r = np.zeros(N, dtype=complex)
+  num_samples = (len(s)-1)*2
+  assert np.floor(np.log2(num_samples)) == np.log2(num_samples)
+  r = np.zeros(num_samples, dtype=complex)
   r[:len(s)] = s
   r[len(s):] = np.conjugate(np.flipud(s[1:-1]))
   return r
 
-def make_noise(N: int, noise_level: float) -> NDArray:
-  """Create a noise spectrum and invert it to get a real noisy waveform."""
-  spectrum = noise_level * np.exp(1j * np.random.rand(N//2+1)*2*np.pi)
+def make_noise(num_samples: int, noise_level: float) -> NDArray:
+  """Create a noise spectrum and invert it to get a real noisy waveform.
+  Strictly speaking this is a "random phase white noise process" since the 
+  spectrum is a constant. (But it's still white noise because the phases are
+  uncorrelated so by the law of large numbers the resulting waveform is 
+  Gaussian.)
+  """
+  spectrum = noise_level * np.exp(1j * np.random.rand(num_samples//2+1)*2*np.pi)
   spectrum[0] = noise_level
-  spectrum[N//2] = noise_level
+  spectrum[num_samples//2] = 0*noise_level
   spectrum = make_hermitian(spectrum)
-  return spectrum, N*np.real(np.fft.ifft(spectrum))
+  return spectrum, np.real(np.fft.ifft(spectrum))
 
 
 def make_experiment(signal_waveform: NDArray,
                     num_trials: int,
                     noise_level: float = 1) -> NDArray:
   """Create a set of trials that make up a full experiment."""
-  N = len(signal_waveform)
-  results = np.zeros((N, num_trials))
+  num_samples = len(signal_waveform)
+  results = np.zeros((num_samples, num_trials))
   for i in range(num_trials):
-    noise_spectrum, noise_waveform = make_noise(N, noise_level)
+    noise_spectrum, noise_waveform = make_noise(num_samples, noise_level)
     results[:, i] = signal_waveform + noise_waveform
   return results, noise_spectrum
 
@@ -794,22 +804,27 @@ def EstimateCorrelation(true_signal, results: NDArray)-> float:
 
 def colored_theory_mean(signal_spectrogram, noise_spectrogram):
   assert signal_spectrogram.shape == noise_spectrogram.shape
-  N = signal_spectrogram.shape[0]
-  return N*np.sum(signal_spectrogram*np.conjugate(signal_spectrogram))
+  num_samples = signal_spectrogram.shape[0]
+  return np.sum(signal_spectrogram*np.conjugate(signal_spectrogram))/num_samples
 
 def colored_theory_var(signal_spectrogram, noise_spectrogram):
   assert signal_spectrogram.shape == noise_spectrogram.shape
-  N = signal_spectrogram.shape[0]
-  return N*N*np.sum(signal_spectrogram*np.conjugate(signal_spectrogram)*
-                      noise_spectrogram*np.conjugate(noise_spectrogram))
+  num_samples = signal_spectrogram.shape[0]
+  return np.sum(signal_spectrogram*np.conjugate(signal_spectrogram)*
+                noise_spectrogram*np.conjugate(noise_spectrogram))/num_samples**2
 
+def colored_theory_dprime(signal_spectrogram, noise_spectrogram):
+  mean = colored_theory_mean(signal_spectrogram, noise_spectrogram) - colored_theory_mean(0*signal_spectrogram, noise_spectrogram) 
+  var = colored_theory_var(signal_spectrogram, noise_spectrogram)**2 + colored_theory_var(0*signal_spectrogram, noise_spectrogram)**2
+  return mean/np.sqrt(var)
 
 def colored_noise_simulation(figsize=(6.4, 4.8), 
                              plot_file: str = 'ColoredNoiseResult.png',
                              plot_dir: str = '.'):
-  N = 128
-  signal_spectrum = np.zeros(N)
-  signal_spectrum[4] = 1
+  num_samples = 128
+  num_trials = 1000
+  signal_spectrum = np.zeros(num_samples)
+  signal_spectrum[4] = 1 # Just one frequency, 4 cycles per signal length. 
   signal_spectrum[-4] = 1
 
   np.random.seed(FLAGS.seed)
@@ -822,7 +837,8 @@ def colored_noise_simulation(figsize=(6.4, 4.8),
   for n in noises:
     test_spectrum = signal_level * signal_spectrum
     test_signal = make_signal(test_spectrum)
-    results, noise_spectrum = make_experiment(test_signal, 1000, noise_level=n)
+    results, noise_spectrum = make_experiment(test_signal, num_trials, 
+                                              noise_level=n)
     mean, var = EstimateCorrelation(test_signal, results)
     sim_means.append(mean)
     sim_vars.append(var)
@@ -842,7 +858,7 @@ def colored_noise_simulation(figsize=(6.4, 4.8),
   plt.legend()
   plt.title('Colored Noise Simulation')
   plt.ylabel('Variance of Correlation Measure')
-  np.mean(sim_means / theory_means), np.mean(sim_vars / theory_vars)
+  print(np.mean(sim_means / theory_means), np.mean(sim_vars / theory_vars))
 
   plt.savefig(os.path.join(plot_dir, plot_file))
 
@@ -1091,36 +1107,40 @@ def threshold_theory_ratio(figsize=(6.4, 4.8),
 
 ##################### Main Program  #####################
 
-
 def main(_argv=None):
   # compare_full_partial_correlation()
   print('ABR Simulations. Cache dir is', FLAGS.cache_dir)
 
-  (spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
-   spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
-   spf_dprimes, spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal, 
-   signal_levels) = get_simulation_data(num_experiments=FLAGS.num_experiments,
-                                        cache_dir=FLAGS.cache_dir,
-                                        jackknife=False)
+  if FLAGS.tests in ['all', 'single_point']:
+    (spp_dprimes, spp_mean_noise, spp_mean_signal, spp_var_noise, spp_var_signal,
+    spc_dprimes, spc_mean_noise, spc_mean_signal, spc_var_noise, spc_var_signal,
+    spf_dprimes, spf_mean_noise, spf_mean_signal, spf_var_noise, spf_var_signal, 
+    signal_levels) = get_simulation_data(num_experiments=FLAGS.num_experiments,
+                                          cache_dir=FLAGS.cache_dir,
+                                          jackknife=False)
 
-  plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir=FLAGS.cache_dir)
-  plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes, plot_dir=FLAGS.cache_dir)
-  plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes, plot_dir=FLAGS.cache_dir)
+    plot_spp_stats(spp_mean_signal, spp_var_signal, spp_dprimes, plot_dir=FLAGS.cache_dir)
+    plot_spc_stats(spc_mean_signal, spc_var_signal, spc_dprimes, plot_dir=FLAGS.cache_dir)
+    plot_spf_stats(spf_mean_signal, spf_var_signal, spf_dprimes, plot_dir=FLAGS.cache_dir)
 
-  (_, _, _, _, _,
-   spj_dprimes, spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
-   _, _, _, _, _,
-   signal_levels) = get_simulation_data(
-            num_experiments=FLAGS.num_jackknife_experiments,
-            cache_dir=FLAGS.cache_dir, 
-            jackknife=True)
-  plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir=FLAGS.cache_dir)
+  if FLAGS.tests in ['all', 'jackknife']:
+    (_, _, _, _, _,
+    spj_dprimes, spj_mean_noise, spj_mean_signal, spj_var_noise, spj_var_signal,
+    _, _, _, _, _,
+    signal_levels) = get_simulation_data(
+              num_experiments=FLAGS.num_jackknife_experiments,
+              cache_dir=FLAGS.cache_dir, 
+              jackknife=True)
+    plot_spj_stats(spj_mean_signal, spj_var_signal, spj_dprimes, plot_dir=FLAGS.cache_dir)
 
-  compare_dprimes(plot_dir=FLAGS.cache_dir)
-  multilook_plot(plot_dir=FLAGS.cache_dir)
-  threshold_theory_ratio(plot_dir=FLAGS.cache_dir)
-  plot_synthetic_stack_example(plot_dir=FLAGS.cache_dir)
-  colored_noise_simulation(plot_dir=FLAGS.cache_dir)
+  if FLAGS.tests in ['all', 'misc']:
+    compare_dprimes(plot_dir=FLAGS.cache_dir)
+    multilook_plot(plot_dir=FLAGS.cache_dir)
+    threshold_theory_ratio(plot_dir=FLAGS.cache_dir)
+    plot_synthetic_stack_example(plot_dir=FLAGS.cache_dir)
+
+  if FLAGS.tests in ['all', 'colored_noise']:
+    colored_noise_simulation(plot_dir=FLAGS.cache_dir)
 
 if __name__ == '__main__':
    app.run(main)
