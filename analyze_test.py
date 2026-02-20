@@ -123,7 +123,7 @@ class ColoredNoise(absltest.TestCase):
 
   def test_noise_comparison(self) -> None:
     plot_file='AnalysisNoiseComparison.png'
-    plot_dir: str = 'resultm'
+    plot_dir: str = 'Results'
 
     plt.figure(figsize=(18, 6))
     for i, flat in enumerate([True, False]):

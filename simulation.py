@@ -14,7 +14,7 @@ from sklearn.linear_model import Ridge, LinearRegression
 flags.DEFINE_integer('seed', 42, 'Initial seed for data generation.')
 flags.DEFINE_integer('num_experiments', 1000, 'How many experiments to run.')
 flags.DEFINE_integer('num_jackknife_experiments', 100, 'How many jackknife experiments to run.')
-flags.DEFINE_string('cache_dir', 'results', 'Directory to cache simulation results.')
+flags.DEFINE_string('cache_dir', 'Results', 'Directory to cache simulation results.')
 flags.DEFINE_enum(
   'tests', 'all',
   ['all', 'single_point', 'jackknife', 'misc',  'colored_noise'],
