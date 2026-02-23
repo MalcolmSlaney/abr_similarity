@@ -232,7 +232,7 @@ def spectral_advantage_plot(freqs, original_powers, filtered_powers,
 
 
 flags.DEFINE_string('data_dir', 'Data/Bidelman', 'Directory containing Bidelman ABR data files.')
-flags.DEFINE_string('plot_dir', 'Plots', 'Directory to save plots.')
+flags.DEFINE_string('plot_dir', 'Results', 'Directory to save plots.')
 FLAGS = flags.FLAGS
 
 def main(_):
