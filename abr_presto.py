@@ -1,6 +1,7 @@
 import absl.app
 import absl.flags
 
+from datetime import datetime
 import glob
 import json
 import absl
@@ -307,12 +308,28 @@ def main(argv):
   del argv  # Unused
 
   # First compare the covariance-based d-prime estimates to the ABRPresto thresholds
-  abrpresto_df = get_threshold_data(FLAGS.basedir, 'ABRpresto thresholds 10-29-24.csv')
-  print(abrpresto_df.head())
 
-  matched_abrpresto_levels, matched_abrpresto_dprimes = compare_dprime_to_thresholds(abrpresto_df, basedir=FLAGS.basedir)
-  abrpresto_slope, abrpresto_intercept = fit_linear_regression(matched_abrpresto_levels, matched_abrpresto_dprimes)
-  
+  cache_filename = 'Results/ABRPrestoThresholdData.npz'
+  if os.path.exists(cache_filename):
+    data = np.load(cache_filename)
+    matched_abrpresto_dprimes = data['matched_abrpresto_dprimes']
+    matched_abrpresto_levels = data['matched_abrpresto_levels']
+    abrpresto_slope = data['abrpresto_slope']
+    abrpresto_intercept = data['abrpresto_intercept']
+  else:
+    abrpresto_df = get_threshold_data(FLAGS.basedir, 'ABRpresto thresholds 10-29-24.csv')
+    print(abrpresto_df.head())
+    matched_abrpresto_levels, matched_abrpresto_dprimes = compare_dprime_to_thresholds(abrpresto_df, basedir=FLAGS.basedir)
+    abrpresto_slope, abrpresto_intercept = fit_linear_regression(matched_abrpresto_levels, matched_abrpresto_dprimes)
+    # Write the dictionary to a cache file
+    np.savez(cache_filename,
+             matched_abrpresto_levels=matched_abrpresto_levels,
+             matched_abrpresto_dprimes=matched_abrpresto_dprimes,
+             abrpresto_slope=abrpresto_slope,
+             abrpresto_intercept=abrpresto_intercept,
+             datetime=str(datetime.now()),
+    )
+
   plt.figure()
   plt.plot(matched_abrpresto_levels, matched_abrpresto_dprimes, 'x')
   plt.plot(matched_abrpresto_levels, [abrpresto_slope * x + abrpresto_intercept for x in matched_abrpresto_levels], label='ABRPresto Threshold Fit')
@@ -322,11 +339,27 @@ def main(argv):
   plt.savefig('Results/ThresholdComparisonABRPresto.png')
 
   # Now compare the covariance-based d-prime estimates to the manual thresholds
-  manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
-  print(manual_df.head())
-  
-  matched_manual_levels, matched_manual_dprimes = compare_dprime_to_thresholds(manual_df, basedir=FLAGS.basedir)
-  matched_slope, matched_intercept = fit_linear_regression(matched_manual_levels, matched_manual_dprimes)
+  cache_filename = 'Results/ABRPrestoManualData.npz'
+  if os.path.exists(cache_filename):
+    data = np.load(cache_filename)
+    matched_manual_levels = data['matched_manual_levels']
+    matched_manual_dprimes = data['matched_manual_dprimes']
+    matched_slope = data['manual_slope']
+    matched_intercept = data['manual_intercept']
+  else:
+    manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
+    print(manual_df.head())
+    
+    matched_manual_levels, matched_manual_dprimes = compare_dprime_to_thresholds(manual_df, basedir=FLAGS.basedir)
+    matched_slope, matched_intercept = fit_linear_regression(matched_manual_levels, matched_manual_dprimes)
+    np.savez(cache_filename,
+             matched_manual_levels=matched_manual_levels,
+             matched_manual_dprimes=matched_manual_dprimes,
+             manual_slope=matched_slope,
+             manual_intercept=matched_intercept,
+             datetime=str(datetime.now()),
+    )
+
 
   plt.figure()
   plt.plot(matched_manual_levels, matched_manual_dprimes, 'x')
