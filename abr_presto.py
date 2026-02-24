@@ -331,11 +331,15 @@ def main(argv):
     )
 
   plt.figure()
-  plt.plot(matched_abrpresto_levels, matched_abrpresto_dprimes, 'x')
+  plt.plot(matched_abrpresto_levels, matched_abrpresto_dprimes, 'x', alpha=0.1)
   plt.plot(matched_abrpresto_levels, [abrpresto_slope * x + abrpresto_intercept for x in matched_abrpresto_levels], label='ABRPresto Threshold Fit')
   plt.xlabel('Level (dB)')
   plt.ylabel('d\'')
   plt.title(f'Comparison between ABR Threshold and Covariance')
+  plt.text(50, abrpresto_slope * 50 + abrpresto_intercept + 0.03, 
+           f'Slope: {abrpresto_slope*10:.2f}/10dB, Intercept: {abrpresto_intercept:.2f}', 
+           rotation=np.arctan(abrpresto_slope) * 180 / np.pi, fontsize=10,
+           rotation_mode='anchor', transform_rotates_text=True)
   plt.savefig('Results/ThresholdComparisonABRPresto.png')
 
   # Now compare the covariance-based d-prime estimates to the manual thresholds
@@ -362,11 +366,15 @@ def main(argv):
 
 
   plt.figure()
-  plt.plot(matched_manual_levels, matched_manual_dprimes, 'x')
+  plt.plot(matched_manual_levels, matched_manual_dprimes, 'x', alpha=0.1)
   plt.plot(matched_manual_levels, [matched_slope * x + matched_intercept for x in matched_manual_levels], label='Manual Threshold Fit')
   plt.xlabel('Level (dB)')
   plt.ylabel('d\'')
   plt.title(f'Comparison between Manual Threshold and Covariance')
+  plt.text(50, matched_slope * 50 + matched_intercept + 0.03, 
+           f'Slope: {matched_slope*10:.2f}/10dB, Intercept: {matched_intercept:.2f}', 
+           rotation=np.arctan(matched_slope) * 180 / np.pi, fontsize=10,
+           rotation_mode='anchor', transform_rotates_text=True)
   plt.savefig('Results/ThresholdComparisonManual.png')
 
 if __name__ == '__main__':
