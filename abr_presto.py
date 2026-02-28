@@ -367,6 +367,11 @@ def main(argv):
     abrpresto_df = get_threshold_data(FLAGS.basedir, 'ABRpresto thresholds 10-29-24.csv')
     print(abrpresto_df.head())
     matched_abrpresto_levels, matched_abrpresto_dprimes = compare_dprime_to_thresholds(abrpresto_df, basedir=FLAGS.basedir)
+    np.savez(cache_filename,
+             matched_abrpresto_levels=matched_abrpresto_levels,
+             matched_abrpresto_dprimes=matched_abrpresto_dprimes,
+             datetime=str(datetime.now()),
+    )
     abrpresto_slope, abrpresto_intercept = fit_linear_regression(matched_abrpresto_levels, matched_abrpresto_dprimes)
     # Write the dictionary to a cache file
     np.savez(cache_filename,
