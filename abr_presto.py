@@ -197,7 +197,7 @@ class DPrimePower(object):
       popt, pcov = curve_fit(self.piecewise_func, levels, dprimes, p0=initial_guess)
     except RuntimeError as e:
       print(f"Error fitting curve: {e}", levels, dprimes)
-      popt = 50, 0
+      popt = 0, 0
     self.fitted_breakpoint, self.fitted_a = popt
 
     if plot:
