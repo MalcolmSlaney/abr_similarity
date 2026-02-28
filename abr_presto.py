@@ -18,6 +18,7 @@ from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import zarr
 from cftsdata import abr
+from sklearn.linear_model import LinearRegression
 
 from analyze import calculate_jackknife_covariance, randomize_phase
 
@@ -321,7 +322,6 @@ def get_threshold_data(basedir: str, csv_filename: str = 'Manual Thresholds.csv'
     raise FileNotFoundError(f"Error: The file '{csv_path}' was not found.")
 
 
-from sklearn.linear_model import LinearRegression
 
 def fit_linear_regression(levels: ArrayLike, dprimes: ArrayLike) -> Tuple[float, float]:
   """Fit a linear regression model to the data and return the slope and intercept."""
@@ -329,8 +329,8 @@ def fit_linear_regression(levels: ArrayLike, dprimes: ArrayLike) -> Tuple[float,
   X = np.array(levels).reshape(-1, 1)
   y = np.array(dprimes)
 
-  # Create the boolean mask for finite values in dprimes
-  mask = np.isfinite(y)
+  # Create the boolean mask for finite values in all the data.
+  mask = np.logical_and(np.isfinite(y), np.isfinite(X.flatten()))
 
   # Apply the mask to both arrays
   X = X[mask]
