@@ -193,7 +193,11 @@ class DPrimePower(object):
     initial_guess = [5.0, 1.0]
 
     # popt contains the optimal parameters; pcov is the covariance matrix
-    popt, pcov = curve_fit(self.piecewise_func, levels, dprimes, p0=initial_guess)
+    try:
+      popt, pcov = curve_fit(self.piecewise_func, levels, dprimes, p0=initial_guess)
+    except RuntimeError as e:
+      print(f"Error fitting curve: {e}", levels, dprimes)
+      self.fitted_breakpoint, self.fitted_a = 50, 0
     self.fitted_breakpoint, self.fitted_a = popt
 
     if plot:
