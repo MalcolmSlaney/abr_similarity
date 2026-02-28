@@ -329,6 +329,13 @@ def fit_linear_regression(levels: ArrayLike, dprimes: ArrayLike) -> Tuple[float,
   X = np.array(levels).reshape(-1, 1)
   y = np.array(dprimes)
 
+  # Create the boolean mask for finite values in dprimes
+  mask = np.isfinite(y)
+
+  # Apply the mask to both arrays
+  X = X[mask]
+  y = y[mask]
+
   # Create and fit the linear regression model
   model = LinearRegression()
   model.fit(X, y)
