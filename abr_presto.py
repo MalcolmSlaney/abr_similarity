@@ -1,6 +1,11 @@
 import absl.app
 import absl.flags
 
+import os
+import pandas as pd
+import random
+from typing import List, Optional, Tuple, Union
+
 from datetime import datetime
 import glob
 import json
@@ -8,11 +13,7 @@ import absl
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 import numpy.polynomial.polynomial as poly
-
-import os
-import pandas as pd
-import random
-from typing import List, Optional, Tuple, Union
+from scipy.optimize import curve_fit
 
 import matplotlib.pyplot as plt
 import zarr
@@ -179,6 +180,31 @@ class DPrimeQuadratic(object):
   def compute(self, levels: ArrayLike) -> ArrayLike:
     return self.dp_poly(levels)
 
+class DPrimePower(object):
+  def piecewise_func(self, level, breakpoint, a):
+    # If level < breakpoint, return 0. Otherwise, return a * level^2
+    # Changed np.max to np.maximum for element-wise comparison
+    level_after_breakpoint = np.maximum(0.0, level - breakpoint)
+    return a * level_after_breakpoint**2
+
+  def __init__(self, levels: ArrayLike, dprimes: ArrayLike, order: int = 2, plot=False):
+    # 2. Fit the function to the data
+    # We provide initial guesses for [breakpoint, a] using the p0 argument.
+    initial_guess = [5.0, 1.0]
+
+    # popt contains the optimal parameters; pcov is the covariance matrix
+    popt, pcov = curve_fit(self.piecewise_func, levels, dprimes, p0=initial_guess)
+    self.fitted_breakpoint, self.fitted_a = popt
+
+    if plot:
+      plt.plot(levels, dprimes, 'o', label='Original Data')
+      plt.plot(levels, self.piecewise_func(levels, self.fitted_breakpoint,
+                                           self.fitted_a), '-', label='Fitted Curve')
+      plt.legend()
+
+  def compute(self, levels:ArrayLike) -> ArrayLike:
+    return self.piecewise_func(levels, self.fitted_breakpoint, self.fitted_a)
+
 
 def get_level_for_dprime(levels, dprimes, target_dprime):
   """Estimates the sound level required to achieve a given d-prime value.
@@ -237,7 +263,7 @@ def get_level_for_dprime(levels, dprimes, target_dprime):
     return valid_roots[0]
 
 
-def compare_dprime_to_thresholds(threshold_df, basedir):
+def compare_dprime_to_thresholds(threshold_df, basedir: str, power_fit: bool = True):
   matched_levels = []
   matched_dprimes = []
   last_mouse_key = None
@@ -269,7 +295,11 @@ def compare_dprime_to_thresholds(threshold_df, basedir):
       freq = frequency
       levels, dprimes, dprimes_without_noise = calculate_dprime_stack(good_df, freq, plot_stack=False)
       # plt.figure()
-      dpq = DPrimeQuadratic(levels, dprimes, plot=False)
+      if power_fit:
+        dpq = DPrimePower(levels, dprimes, plot=False)
+      else:
+        dpq = DPrimeQuadratic(levels, dprimes, plot=False)
+
       if np.isfinite(dpq.compute(manual_threshold)):
         matched_levels.append(manual_threshold)
         matched_dprimes.append(dpq.compute(manual_threshold))
@@ -302,6 +332,11 @@ def fit_linear_regression(levels: ArrayLike, dprimes: ArrayLike) -> Tuple[float,
 
 absl.flags.DEFINE_string('basedir', '../ABRPrestoData', 'Base directory containing the ABR data and threshold CSV files.')
 
+
+def compute_pearson_correlation(levels: ArrayLike, dprimes: ArrayLike) -> float:
+  """Compute the Pearson correlation coefficient between levels and d-primes."""
+  return np.corrcoef(levels, dprimes)[0, 1]
+
 FLAGS = absl.flags.FLAGS
 
 def main(argv):
@@ -316,6 +351,7 @@ def main(argv):
     matched_abrpresto_levels = data['matched_abrpresto_levels']
     abrpresto_slope = data['abrpresto_slope']
     abrpresto_intercept = data['abrpresto_intercept']
+    print(f'Loaded cached ABRPresto data for {len(matched_abrpresto_levels)} experiments from {cache_filename}.')
   else:
     abrpresto_df = get_threshold_data(FLAGS.basedir, 'ABRpresto thresholds 10-29-24.csv')
     print(abrpresto_df.head())
@@ -329,6 +365,9 @@ def main(argv):
              abrpresto_intercept=abrpresto_intercept,
              datetime=str(datetime.now()),
     )
+  
+  abrpresto_correlation = compute_pearson_correlation(matched_abrpresto_levels, matched_abrpresto_dprimes)
+  print(f'ABRPresto threshold correlation r={abrpresto_correlation:.2f}')
 
   plt.figure()
   plt.plot(matched_abrpresto_levels, matched_abrpresto_dprimes, 'x', alpha=0.1)
@@ -340,6 +379,7 @@ def main(argv):
            f'Slope: {abrpresto_slope*10:.2f}/10dB, Intercept: {abrpresto_intercept:.2f}', 
            rotation=np.arctan(abrpresto_slope) * 180 / np.pi, fontsize=10,
            rotation_mode='anchor', transform_rotates_text=True)
+  plt.ylim(-0.25, 1.5)
   plt.savefig('Results/ThresholdComparisonABRPresto.png')
 
   # Now compare the covariance-based d-prime estimates to the manual thresholds
@@ -350,12 +390,14 @@ def main(argv):
     matched_manual_dprimes = data['matched_manual_dprimes']
     matched_slope = data['manual_slope']
     matched_intercept = data['manual_intercept']
+    print(f'Loaded cached Manual data for {len(matched_manual_levels)} experiments from {cache_filename}.')
   else:
     manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
     print(manual_df.head())
     
     matched_manual_levels, matched_manual_dprimes = compare_dprime_to_thresholds(manual_df, basedir=FLAGS.basedir)
     matched_slope, matched_intercept = fit_linear_regression(matched_manual_levels, matched_manual_dprimes)
+
     np.savez(cache_filename,
              matched_manual_levels=matched_manual_levels,
              matched_manual_dprimes=matched_manual_dprimes,
@@ -363,6 +405,8 @@ def main(argv):
              manual_intercept=matched_intercept,
              datetime=str(datetime.now()),
     )
+  abrpresto_correlation = compute_pearson_correlation(matched_manual_levels, matched_manual_dprimes)
+  print(f'Manual threshold correlation r={abrpresto_correlation:.2f}')
 
 
   plt.figure()
@@ -375,6 +419,7 @@ def main(argv):
            f'Slope: {matched_slope*10:.2f}/10dB, Intercept: {matched_intercept:.2f}', 
            rotation=np.arctan(matched_slope) * 180 / np.pi, fontsize=10,
            rotation_mode='anchor', transform_rotates_text=True)
+  plt.ylim(-0.25, 1.5)
   plt.savefig('Results/ThresholdComparisonManual.png')
 
 if __name__ == '__main__':
