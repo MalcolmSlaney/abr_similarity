@@ -312,6 +312,30 @@ def compare_dprime_to_thresholds(threshold_df, basedir: str, power_fit: bool = T
   return matched_levels, matched_dprimes
 
 
+def show_dprime_interolation(basedir: str, manual_df, mouse_id: int = 140, 
+                             timepoint: int = 0, channel: str = 'left', 
+                             plot_filename: str = None):
+  good_df = get_mouse_data(basedir, mouse_id, timepoint, channel)
+  freqs = sorted(get_unique_freqs(good_df))
+  plt.figure(figsize=(10, 10))
+  for i, freq in enumerate(freqs):
+    print(i, freq)
+    plt.subplot(3, 3, i+1)
+    levels, dprimes, dprimes_without_noise = calculate_dprime_stack(good_df, freq)
+    dpq = DPrimePower(levels, dprimes, plot=True)
+    manual_threshold_value = manual_df.loc[
+      (manual_df['id'] == 140) &
+      (manual_df['timepoint'] == 0) &
+      (manual_df['frequency'] == 32000),
+      'manual threshold'
+    ].values[0]
+
+    plt.title(f"{freq}Hz - {manual_threshold_value}dB")
+    plt.axvline(float(dpq.fitted_breakpoint), ls=':');
+    if plot_filename:
+      plt.savefig(plot_filename)
+
+
 def get_threshold_data(basedir: str, csv_filename: str = 'Manual Thresholds.csv') -> Optional[pd.DataFrame]:
   csv_path = os.path.join(basedir, csv_filename)
   try:
@@ -437,6 +461,12 @@ def main(argv):
            rotation_mode='anchor', transform_rotates_text=True)
   plt.ylim(-0.25, 1.5)
   plt.savefig('Results/ThresholdComparisonManual.png')
+
+
+  manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
+  show_dprime_interolation(FLAGS.basedir, manual_df, mouse_id=42, 
+                           timepoint=0, channel='left',
+                           plot_filename='Results/ThresholdInterpolationExample.png')
 
 if __name__ == '__main__':
   absl.app.run(main)
