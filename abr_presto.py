@@ -524,6 +524,9 @@ def main(argv):
   del argv  # Unused
   global trial_dprimes
 
+  manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
+  abr_presto_df = get_threshold_data(FLAGS.basedir, 'ABRpresto thresholds 10-29-24.csv')
+
   cache_filename = 'Results/ABRPrestoSummary.json'
   if os.path.exists(cache_filename):
     with open(cache_filename, 'r') as f:
@@ -543,8 +546,6 @@ def main(argv):
   for k, summary in summaries.items():
     print(f'{k}: Manual Threshold: {summary.manual_threshold}, ABRPresto Threshold: {summary.abrpresto_threshold}, D-prime Thresholds: {summary.dprime_thresholds}')  
     break
-  manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
-  abr_presto_df = get_threshold_data(FLAGS.basedir, 'ABRpresto thresholds 10-29-24.csv')
 
   matched_abrpresto_levels = np.array([abr_summary.abrpresto_threshold 
                                        for abr_summary in summaries.values()])
