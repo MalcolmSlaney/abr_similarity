@@ -4,7 +4,7 @@ import absl.flags
 import os
 import pandas as pd
 import random
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from datetime import datetime
 import glob
@@ -133,14 +133,14 @@ def calculate_dprime(signal_waveforms: NDArray,
   return dprime_from_distributions(s_covariances, n_covariances)
   
 
-def calculate_dprime_stack(exp_df, freq, plot_stack=False):
-  levels = sorted(get_unique_levels(exp_df))
+def calculate_dprime_stack(exp_df: pd.DataFrame, freq: float, plot_stack: bool = False):
+  levels = sorted(get_unique_levels(exp_df), reverse=True)  # Want biggest down to smallest
   if not levels:
     raise ValueError('No levels found')
   freqs = sorted(get_unique_freqs(exp_df))
   if freq not in freqs:
     raise ValueError(f'Frequency {freq} must be in {freqs}.')
-  noisy_data = get_one_exp_type(exp_df, freq, levels[0], 'both').T.copy()
+  noisy_data = get_one_exp_type(exp_df, freq, levels[-1], 'both').T.copy()
   np.random.shuffle(noisy_data)
 
   if plot_stack:
@@ -178,8 +178,45 @@ class DPrimeQuadratic(object):
       plt.ylabel('d\'')
       plt.grid(True)
 
-  def compute(self, levels: ArrayLike) -> ArrayLike:
+  def compute_dprime(self, levels: ArrayLike) -> ArrayLike:
     return self.dp_poly(levels)
+
+  def compute_level(self, target_dprime: float) -> float:
+    """Given a d-prime value, return the corresponding level.
+
+    Solves a*x^2 + b*x + (c - target_dprime) = 0 for x.
+    """
+    # Coefficients are stored as [c, b, a]
+    c_val, b_val, a_val = self.dp_poly.coef
+
+    # Form the quadratic equation a_val*x^2 + b_val*x + (c_val - target_dprime) = 0
+    c_prime = c_val - target_dprime
+
+    discriminant = b_val**2 - 4 * a_val * c_prime
+
+    if a_val == 0:
+        # Linear case: bx + c_prime = 0 => x = -c_prime / b
+        if b_val == 0:
+            return float('nan') # No solution or infinite solutions
+        return -c_prime / b_val
+    
+    if discriminant < 0:
+      return float('nan') # No real roots
+    elif discriminant == 0:
+      return -b_val / (2 * a_val) # One real root
+    else:
+      # Two real roots. Choose the one that corresponds to increasing d' with level.
+      # For ABR, d' generally increases with level, so we typically want the higher level.
+      root1 = (-b_val + np.sqrt(discriminant)) / (2 * a_val)
+      root2 = (-b_val - np.sqrt(discriminant)) / (2 * a_val)
+
+      # Assuming 'a_val' is generally positive for ABR (parabola opens upwards)
+      # and we're interested in the increasing part of the curve.
+      if a_val > 0:
+          return max(root1, root2)
+      else: # Parabola opens downwards
+          return min(root1, root2) # Take the smaller root on the increasing side
+
 
 class DPrimePower(object):
   def piecewise_func(self, level, breakpoint, a):
@@ -207,8 +244,24 @@ class DPrimePower(object):
                                            self.fitted_a), '-', label='Fitted Curve')
       plt.legend()
 
-  def compute(self, levels:ArrayLike) -> ArrayLike:
+  def compute_dprime(self, levels:ArrayLike) -> ArrayLike:
     return self.piecewise_func(levels, self.fitted_breakpoint, self.fitted_a)
+
+  def compute_level(self, target_dprime: float) -> float:
+    """Given a d-prime value, return the corresponding level."""
+    if target_dprime <= 0:
+      return self.fitted_breakpoint
+
+    if self.fitted_a <= 0:
+      return float('nan') # 'a' should be positive for increasing d' with level
+
+    arg_sqrt = target_dprime / self.fitted_a
+    if arg_sqrt < 0:
+      return float('nan')
+
+    level_diff = np.sqrt(arg_sqrt)
+    estimated_level = self.fitted_breakpoint + level_diff
+    return estimated_level
 
 
 def get_level_for_dprime(levels, dprimes, target_dprime):
@@ -268,7 +321,90 @@ def get_level_for_dprime(levels, dprimes, target_dprime):
     return valid_roots[0]
 
 
+from dataclasses import dataclass, field
+
+trial_dprimes = [.01, 0.025, 0.5, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+@dataclass
+class ABRSummary(object):
+  manual_threshold: float = 0
+  abrpresto_threshold: float = 0
+  dprime_at_manual_threshold: float = 0
+  dprime_at_abrpresto_threshold: float = 0
+  dprime_thresholds: List[float] = field(default_factory=list)  # One per trial_dprimes
+
+
+def evaluate_thresholds(summaries: Dict[Tuple, ABRSummary], 
+                        error_threshold: float = 10):
+  accuracies = np.zeros((len(trial_dprimes),))
+  for k, summary in summaries.items():
+    for i, d in enumerate(trial_dprimes):
+      estimated_level = summary.dprime_thresholds[i]
+      if np.isfinite(estimated_level):
+        if abs(estimated_level - summary.manual_threshold) <= error_threshold:
+          accuracies[i] += 1
+  accuracies /= len(summaries)
+  return accuracies
+    
+
+def summarize_all_data(manual_df: pd, 
+                       abr_presto_df: pd, 
+                       basedir: dir, 
+                       power_fit: bool = True) -> Dict[Tuple, ABRSummary]:
+  last_mouse_key = None
+  summaries = {}
+  for index, row in manual_df.iterrows():
+    mouse_id = row['id']
+    timepoint = row['timepoint']
+    ear = row['ear']
+    frequency = row['frequency']
+    if 'manual threshold' in row:
+      manual_threshold = row['manual threshold']
+    else:
+      continue
+
+    # We only want to get the mouse data off disk once, so keep track if the 
+    # same data is being requested again and only read from disk if it's a new 
+    # mouse/timepoint/ear combination.  This is because the threshold data has 
+    # multiple rows for each mouse/timepoint/ear combination, one for each 
+    # frequency.   
+    if last_mouse_key != (mouse_id, timepoint, ear):
+      try:
+        good_df = get_mouse_data(basedir, mouse_id, timepoint, ear)
+      except:
+        continue
+      last_mouse_key = (mouse_id, timepoint, ear)
+    print(f'Computing {mouse_id}: Timepoint: {timepoint}, Ear: {ear}, Frequency: {frequency}, Manual Threshold: {manual_threshold}')
+    levels, dprimes, _ = calculate_dprime_stack(good_df, frequency, 
+                                                plot_stack=False)
+    print(f'Levels: {levels}, D-primes: {dprimes}')
+    if power_fit:
+      dpq = DPrimePower(levels, dprimes, plot=False)
+    else:
+      dpq = DPrimeQuadratic(levels, dprimes, plot=False)
+    abr_summary = ABRSummary()
+    abr_summary.manual_threshold = manual_threshold
+    abr_summary.abrpresto_threshold = abr_presto_df.loc[
+      (abr_presto_df['id'] == mouse_id) &
+      (abr_presto_df['timepoint'] == timepoint) &
+      (abr_presto_df['ear'] == ear) &
+      (abr_presto_df['frequency'] == frequency),
+      'threshold'].values[0]
+    abr_summary.dprime_at_manual_threshold = dpq.compute_dprime(manual_threshold)
+    abr_summary.dprime_at_abrpresto_threshold = dpq.compute_dprime(abr_summary.abrpresto_threshold)
+    abr_summary.dprime_thresholds = [dpq.compute_level(d) for d in trial_dprimes]
+    summaries[(mouse_id, timepoint, ear, frequency)] = abr_summary
+  return summaries
+
+
 def compare_dprime_to_thresholds(threshold_df, basedir: str, power_fit: bool = True):
+  """For each threshold in a Panda dataframe (ABRPresto or manual) create a pair
+  of lists comparing the threshold data with the abr similarity d-prime 
+  estimates.  The two returned lists contain the threshold (either ABRPresto or 
+  Manual) and the corresponding d-prime estimate for that experiment.  
+
+  The d-prime estimate is obtained by fitting a curve to the d-prime vs. level 
+  data and then interpolating to find the d-prime value at the threshold level.
+  """
   matched_levels = []
   matched_dprimes = []
   last_mouse_key = None
@@ -281,10 +417,15 @@ def compare_dprime_to_thresholds(threshold_df, basedir: str, power_fit: bool = T
     if 'manual threshold' in row:
       manual_threshold = row['manual threshold']
     elif 'threshold' in row:
-      manual_threshold = row['threshold']
+      manual_threshold = row['threshold']    # From ABRPresto threshold data
     else:
       raise ValueError('Threshold column not found in the dataframe.')
 
+    # We only want to get the mouse data off disk once, so keep track if the 
+    # same data is being requested again and only read from disk if it's a new 
+    # mouse/timepoint/ear combination.  This is because the threshold data has 
+    # multiple rows for each mouse/timepoint/ear combination, one for each 
+    # frequency.   
     if last_mouse_key != (mouse_id, timepoint, ear):
       try:
         good_df = get_mouse_data(basedir, mouse_id, timepoint, ear)
@@ -293,26 +434,21 @@ def compare_dprime_to_thresholds(threshold_df, basedir: str, power_fit: bool = T
       last_mouse_key = (mouse_id, timepoint, ear)
     print(f"{mouse_id}: Timepoint: {timepoint}, Ear: {ear}, Frequency: {frequency}, Manual Threshold: {manual_threshold}")
     levels, freqs, polarities = get_summary(good_df)
-    # high_data = get_one_exp_type(good_df, frequency, 85.0, 'both').T
 
-    # for freq in freqs:
-    if True:
-      freq = frequency
-      levels, dprimes, dprimes_without_noise = calculate_dprime_stack(good_df, freq, plot_stack=False)
-      # plt.figure()
-      if power_fit:
-        dpq = DPrimePower(levels, dprimes, plot=False)
-      else:
-        dpq = DPrimeQuadratic(levels, dprimes, plot=False)
+    freq = frequency
+    levels, dprimes, dprimes_without_noise = calculate_dprime_stack(good_df, freq, plot_stack=False)
+    if power_fit:
+      dpq = DPrimePower(levels, dprimes, plot=False)
+    else:
+      dpq = DPrimeQuadratic(levels, dprimes, plot=False)
 
-      if np.isfinite(dpq.compute(manual_threshold)):
-        matched_levels.append(manual_threshold)
-        matched_dprimes.append(dpq.compute(manual_threshold))
-      # break
+    if np.isfinite(dpq.compute(manual_threshold)):
+      matched_levels.append(manual_threshold)
+      matched_dprimes.append(dpq.compute(manual_threshold))
   return matched_levels, matched_dprimes
 
 
-def show_dprime_interolation(basedir: str, manual_df, mouse_id: int = 140, 
+def show_dprime_interpolation(basedir: str, manual_df, mouse_id: int = 140, 
                              timepoint: int = 0, channel: str = 'left', 
                              plot_filename: str = None):
   good_df = get_mouse_data(basedir, mouse_id, timepoint, channel)
@@ -324,9 +460,9 @@ def show_dprime_interolation(basedir: str, manual_df, mouse_id: int = 140,
     levels, dprimes, dprimes_without_noise = calculate_dprime_stack(good_df, freq)
     dpq = DPrimePower(levels, dprimes, plot=True)
     manual_threshold_value = manual_df.loc[
-      (manual_df['id'] == 140) &
+      (manual_df['id'] == mouse_id) &
       (manual_df['timepoint'] == 0) &
-      (manual_df['frequency'] == 32000),
+      (manual_df['frequency'] == freq),
       'manual threshold'
     ].values[0]
 
@@ -374,40 +510,56 @@ def compute_pearson_correlation(levels: ArrayLike, dprimes: ArrayLike) -> float:
 
 FLAGS = absl.flags.FLAGS
 
+
+def clean_key(key):
+    # Example transformation: replace "item" with "object"
+    return " ".join([str(k) for k in key])
+
+
+def restore_key(cleaned_key):
+  return tuple(cleaned_key.split(' '))
+
+
 def main(argv):
   del argv  # Unused
+  global trial_dprimes
 
-  # First compare the covariance-based d-prime estimates to the ABRPresto thresholds
-
-  cache_filename = 'Results/ABRPrestoThresholdData.npz'
+  cache_filename = 'Results/ABRPrestoSummary.json'
   if os.path.exists(cache_filename):
-    data = np.load(cache_filename)
-    matched_abrpresto_dprimes = data['matched_abrpresto_dprimes']
-    matched_abrpresto_levels = data['matched_abrpresto_levels']
-    abrpresto_slope = data['abrpresto_slope']
-    abrpresto_intercept = data['abrpresto_intercept']
-    print(f'Loaded cached ABRPresto data for {len(matched_abrpresto_levels)} experiments from {cache_filename}.')
+    with open(cache_filename, 'r') as f:
+      all_data = json.load(f)
+      summaries = all_data['summaries']
+      summaries = {restore_key(key): ABRSummary(**value) for key, value in summaries.items()}
+      trial_dprimes = all_data['dprimes']
+    print(f'Loaded cached summaries for {len(summaries)} experiments from {cache_filename}.')
   else:
-    abrpresto_df = get_threshold_data(FLAGS.basedir, 'ABRpresto thresholds 10-29-24.csv')
-    print(abrpresto_df.head())
-    matched_abrpresto_levels, matched_abrpresto_dprimes = compare_dprime_to_thresholds(abrpresto_df, basedir=FLAGS.basedir)
-    np.savez(cache_filename,
-             matched_abrpresto_levels=matched_abrpresto_levels,
-             matched_abrpresto_dprimes=matched_abrpresto_dprimes,
-             datetime=str(datetime.now()),
-    )
-    abrpresto_slope, abrpresto_intercept = fit_linear_regression(matched_abrpresto_levels, matched_abrpresto_dprimes)
-    # Write the dictionary to a cache file
-    np.savez(cache_filename,
-             matched_abrpresto_levels=matched_abrpresto_levels,
-             matched_abrpresto_dprimes=matched_abrpresto_dprimes,
-             abrpresto_slope=abrpresto_slope,
-             abrpresto_intercept=abrpresto_intercept,
-             datetime=str(datetime.now()),
-    )
-  
-  abrpresto_correlation = compute_pearson_correlation(matched_abrpresto_levels, matched_abrpresto_dprimes)
+    summaries = summarize_all_data(manual_df, abr_presto_df, FLAGS.basedir)
+    with open(cache_filename, 'w') as f:
+      new_summaries = {clean_key(key): value.__dict__ for key, value in summaries.items()}
+      json.dump({'summaries': new_summaries,
+                 'dprimes': trial_dprimes}, 
+                f, indent=2)
+    print(f'Cached summaries for {len(summaries)} experiments to {cache_filename}.')
+  for k, summary in summaries.items():
+    print(f'{k}: Manual Threshold: {summary.manual_threshold}, ABRPresto Threshold: {summary.abrpresto_threshold}, D-prime Thresholds: {summary.dprime_thresholds}')  
+    break
+  manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
+  abr_presto_df = get_threshold_data(FLAGS.basedir, 'ABRpresto thresholds 10-29-24.csv')
+
+  matched_abrpresto_levels = np.array([abr_summary.abrpresto_threshold 
+                                       for abr_summary in summaries.values()])
+  matched_abrpresto_dprimes = np.array([abr_summary.dprime_at_abrpresto_threshold 
+                                        for abr_summary in summaries.values()])
+  mask = np.logical_and(np.isfinite(matched_abrpresto_levels), 
+                        np.isfinite(matched_abrpresto_dprimes))
+  matched_abrpresto_levels = matched_abrpresto_levels[mask]
+  matched_abrpresto_dprimes = matched_abrpresto_dprimes[mask]
+
+  abrpresto_correlation = compute_pearson_correlation(matched_abrpresto_levels, 
+                                                      matched_abrpresto_dprimes)
   print(f'ABRPresto threshold correlation r={abrpresto_correlation:.2f}')
+
+  abrpresto_slope, abrpresto_intercept = fit_linear_regression(matched_abrpresto_levels, matched_abrpresto_dprimes)
 
   plt.figure()
   plt.plot(matched_abrpresto_levels, matched_abrpresto_dprimes, 'x', alpha=0.1)
@@ -422,32 +574,17 @@ def main(argv):
   plt.ylim(-0.25, 1.5)
   plt.savefig('Results/ThresholdComparisonABRPresto.png')
 
-  # Now compare the covariance-based d-prime estimates to the manual thresholds
-  cache_filename = 'Results/ABRPrestoManualData.npz'
-  if os.path.exists(cache_filename):
-    data = np.load(cache_filename)
-    matched_manual_levels = data['matched_manual_levels']
-    matched_manual_dprimes = data['matched_manual_dprimes']
-    matched_slope = data['manual_slope']
-    matched_intercept = data['manual_intercept']
-    print(f'Loaded cached Manual data for {len(matched_manual_levels)} experiments from {cache_filename}.')
-  else:
-    manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
-    print(manual_df.head())
-    
-    matched_manual_levels, matched_manual_dprimes = compare_dprime_to_thresholds(manual_df, basedir=FLAGS.basedir)
-    matched_slope, matched_intercept = fit_linear_regression(matched_manual_levels, matched_manual_dprimes)
-
-    np.savez(cache_filename,
-             matched_manual_levels=matched_manual_levels,
-             matched_manual_dprimes=matched_manual_dprimes,
-             manual_slope=matched_slope,
-             manual_intercept=matched_intercept,
-             datetime=str(datetime.now()),
-    )
-  abrpresto_correlation = compute_pearson_correlation(matched_manual_levels, matched_manual_dprimes)
-  print(f'Manual threshold correlation r={abrpresto_correlation:.2f}')
-
+  matched_manual_levels = np.array([abr_summary.manual_threshold 
+                                  for abr_summary in summaries.values()])
+  matched_manual_dprimes = np.array([abr_summary.dprime_at_manual_threshold 
+                                   for abr_summary in summaries.values()])
+  mask = np.logical_and(np.isfinite(matched_manual_levels), 
+                        np.isfinite(matched_manual_dprimes))
+  matched_manual_levels = matched_manual_levels[mask]
+  matched_manual_dprimes = matched_manual_dprimes[mask]
+  manual_correlation = compute_pearson_correlation(matched_manual_levels, matched_manual_dprimes)
+  print(f'Manual threshold correlation r={manual_correlation:.2f}') 
+  matched_slope, matched_intercept = fit_linear_regression(matched_manual_levels, matched_manual_dprimes)
 
   plt.figure()
   plt.plot(matched_manual_levels, matched_manual_dprimes, 'x', alpha=0.1)
@@ -462,11 +599,13 @@ def main(argv):
   plt.ylim(-0.25, 1.5)
   plt.savefig('Results/ThresholdComparisonManual.png')
 
+  accuracies = evaluate_thresholds(summaries, error_threshold=10)
+  print('Accuracies versus d\':', accuracies)
 
-  manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
-  show_dprime_interolation(FLAGS.basedir, manual_df, mouse_id=42, 
-                           timepoint=0, channel='left',
-                           plot_filename='Results/ThresholdInterpolationExample.png')
+  show_dprime_interpolation(FLAGS.basedir, manual_df, mouse_id=242, 
+                            timepoint=0, channel='left',
+                            plot_filename='Results/ThresholdInterpolationExample.png')
+  return
 
 if __name__ == '__main__':
   absl.app.run(main)
