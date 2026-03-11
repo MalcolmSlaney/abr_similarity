@@ -21,6 +21,7 @@ from cftsdata import abr
 from sklearn.linear_model import LinearRegression
 
 from analyze import calculate_jackknife_covariance, randomize_phase
+from abrpresto_utils import FitPowerCurve, FitQuadraticMonomialCurve, FitSigmoidCurve
 
 
 def read_experiment_data(path):
@@ -163,167 +164,10 @@ def calculate_dprime_stack(exp_df: pd.DataFrame, freq: float, plot_stack: bool =
   return levels, dprimes, dprimes_wo_noise
 
 
-class DPrimeQuadratic(object):
-  def __init__(self, levels: ArrayLike, dprimes: ArrayLike, order: int = 2, plot=False):
-    # self.poly_coeffs = np.polyfit(levels, dprimes, order)
-    # self.quad_function = np.poly1d(self.poly_coeffs)
-  
-    self.dp_poly = poly.Polynomial.fit(levels, dprimes, deg=[2,], domain=[-100, 100])
-    if plot:
-      plt.plot(levels, dprimes, 'o', label='Original Data')
-      plt.plot(levels, self.dp_poly(levels), '-', label='Quadratic Fit')
-      plt.legend()
-      plt.title('Quadratic Fit to d\' vs. Level')
-      plt.xlabel('Level (dB)')
-      plt.ylabel('d\'')
-      plt.grid(True)
-
-  def compute_dprime(self, levels: ArrayLike) -> ArrayLike:
-    return self.dp_poly(levels)
-
-  def compute_level(self, target_dprime: float) -> float:
-    """Given a d-prime value, return the corresponding level.
-
-    Solves a*x^2 + b*x + (c - target_dprime) = 0 for x.
-    """
-    # Coefficients are stored as [c, b, a]
-    c_val, b_val, a_val = self.dp_poly.coef
-
-    # Form the quadratic equation a_val*x^2 + b_val*x + (c_val - target_dprime) = 0
-    c_prime = c_val - target_dprime
-
-    discriminant = b_val**2 - 4 * a_val * c_prime
-
-    if a_val == 0:
-        # Linear case: bx + c_prime = 0 => x = -c_prime / b
-        if b_val == 0:
-            return float('nan') # No solution or infinite solutions
-        return -c_prime / b_val
-    
-    if discriminant < 0:
-      return float('nan') # No real roots
-    elif discriminant == 0:
-      return -b_val / (2 * a_val) # One real root
-    else:
-      # Two real roots. Choose the one that corresponds to increasing d' with level.
-      # For ABR, d' generally increases with level, so we typically want the higher level.
-      root1 = (-b_val + np.sqrt(discriminant)) / (2 * a_val)
-      root2 = (-b_val - np.sqrt(discriminant)) / (2 * a_val)
-
-      # Assuming 'a_val' is generally positive for ABR (parabola opens upwards)
-      # and we're interested in the increasing part of the curve.
-      if a_val > 0:
-          return max(root1, root2)
-      else: # Parabola opens downwards
-          return min(root1, root2) # Take the smaller root on the increasing side
-
-
-class DPrimePower(object):
-  def piecewise_func(self, level, breakpoint, a):
-    # If level < breakpoint, return 0. Otherwise, return a * level^2
-    # Changed np.max to np.maximum for element-wise comparison
-    level_after_breakpoint = np.maximum(0.0, level - breakpoint)
-    return a * level_after_breakpoint**2
-
-  def __init__(self, levels: ArrayLike, dprimes: ArrayLike, order: int = 2, plot=False):
-    # 2. Fit the function to the data
-    # We provide initial guesses for [breakpoint, a] using the p0 argument.
-    initial_guess = [5.0, 1.0]
-
-    # popt contains the optimal parameters; pcov is the covariance matrix
-    try:
-      popt, pcov = curve_fit(self.piecewise_func, levels, dprimes, p0=initial_guess)
-    except RuntimeError as e:
-      print(f"Error fitting curve: {e}", levels, dprimes)
-      popt = 0, 0
-    self.fitted_breakpoint, self.fitted_a = popt
-
-    if plot:
-      plt.plot(levels, dprimes, 'o', label='Original Data')
-      plt.plot(levels, self.piecewise_func(levels, self.fitted_breakpoint,
-                                           self.fitted_a), '-', label='Fitted Curve')
-      plt.legend()
-
-  def compute_dprime(self, levels:ArrayLike) -> ArrayLike:
-    return self.piecewise_func(levels, self.fitted_breakpoint, self.fitted_a)
-
-  def compute_level(self, target_dprime: float) -> float:
-    """Given a d-prime value, return the corresponding level."""
-    if target_dprime <= 0:
-      return self.fitted_breakpoint
-
-    if self.fitted_a <= 0:
-      return float('nan') # 'a' should be positive for increasing d' with level
-
-    arg_sqrt = target_dprime / self.fitted_a
-    if arg_sqrt < 0:
-      return float('nan')
-
-    level_diff = np.sqrt(arg_sqrt)
-    estimated_level = self.fitted_breakpoint + level_diff
-    return estimated_level
-
-
-def get_level_for_dprime(levels, dprimes, target_dprime):
-  """Estimates the sound level required to achieve a given d-prime value.
-
-  Args:
-    levels: A list or array of sound levels.
-    dprimes: A list or array of corresponding d-prime values.
-    target_dprime: The desired d-prime value.
-
-  Returns:
-    The estimated sound level (float) corresponding to the target d-prime.
-    Returns None if no real solution is found within the range of levels.
-  """
-  # Fit a quadratic polynomial to the levels and dprimes
-  poly_coeffs = np.polyfit(levels, dprimes, 2)
-
-  # Create a new polynomial for which we want to find the root:
-  # a*x^2 + b*x + c - target_dprime = 0
-  a, b, c = poly_coeffs[0], poly_coeffs[1], poly_coeffs[2] - target_dprime
-
-  # Solve the quadratic equation ax^2 + bx + c = 0 for x (level)
-  # Using the quadratic formula: x = (-b +- sqrt(b^2 - 4ac)) / 2a
-  discriminant = b**2 - 4*a*c
-
-  if discriminant < 0:
-    # No real roots
-    return None
-  elif discriminant == 0:
-    # One real root
-    root = -b / (2*a)
-    roots = [root]
-  else:
-    # Two real roots
-    root1 = (-b + np.sqrt(discriminant)) / (2*a)
-    root2 = (-b - np.sqrt(discriminant)) / (2*a)
-    roots = [root1, root2]
-
-  # Filter for roots that are within the range of the input levels
-  min_level, max_level = min(levels), max(levels)
-  valid_roots = [r for r in roots if min_level <= r <= max_level and np.isreal(r)]
-
-  if not valid_roots:
-    return None
-  
-  # Return the root closest to the center of the level range if multiple valid roots
-  # or simply the first valid root found
-  if len(valid_roots) > 1:
-    # If the d-prime curve is U-shaped, we generally want the higher level
-    # or the one that makes sense in the context of increasing d-prime with level
-    # For ABR, d-prime increases with level, so we want the larger root
-    if a > 0: # Parabola opens upwards, higher d' comes from higher level
-        return max(valid_roots)
-    else: # Parabola opens downwards, higher d' comes from lower level
-        return min(valid_roots)
-  else:
-    return valid_roots[0]
-
 
 from dataclasses import dataclass, field
 
-trial_dprimes = [.01, 0.025, 0.5, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+trial_dprimes = [.001, .0025, 0.05, .01, 0.025, 0.5, 0.1, 0.25, 0.5, 1.0]
 @dataclass
 class ABRSummary(object):
   manual_threshold: float = 0
@@ -333,8 +177,9 @@ class ABRSummary(object):
   dprime_thresholds: List[float] = field(default_factory=list)  # One per trial_dprimes
 
 
-def evaluate_thresholds(summaries: Dict[Tuple, ABRSummary], 
-                        error_threshold: float = 10):
+def evaluate_thresholds(
+    summaries: Dict[Tuple, ABRSummary], 
+    error_threshold: float = 10) -> Tuple[List[float], List[float]]:
   accuracies = np.zeros((len(trial_dprimes),))
   for k, summary in summaries.items():
     for i, d in enumerate(trial_dprimes):
@@ -343,8 +188,8 @@ def evaluate_thresholds(summaries: Dict[Tuple, ABRSummary],
         if abs(estimated_level - summary.manual_threshold) <= error_threshold:
           accuracies[i] += 1
   accuracies /= len(summaries)
-  return accuracies
-    
+  return trial_dprimes, accuracies
+
 
 def summarize_all_data(manual_df: pd, 
                        abr_presto_df: pd, 
@@ -378,9 +223,9 @@ def summarize_all_data(manual_df: pd,
                                                 plot_stack=False)
     print(f'Levels: {levels}, D-primes: {dprimes}')
     if power_fit:
-      dpq = DPrimePower(levels, dprimes, plot=False)
+      dpq = FitPowerCurve(levels, dprimes, plot=False)
     else:
-      dpq = DPrimeQuadratic(levels, dprimes, plot=False)
+      dpq = FitQuadraticMonomialCurve(levels, dprimes, plot=False)
     abr_summary = ABRSummary()
     abr_summary.manual_threshold = manual_threshold
     abr_summary.abrpresto_threshold = abr_presto_df.loc[
@@ -438,9 +283,9 @@ def compare_dprime_to_thresholds(threshold_df, basedir: str, power_fit: bool = T
     freq = frequency
     levels, dprimes, dprimes_without_noise = calculate_dprime_stack(good_df, freq, plot_stack=False)
     if power_fit:
-      dpq = DPrimePower(levels, dprimes, plot=False)
+      dpq = FitPowerCurve(levels, dprimes, plot=False)
     else:
-      dpq = DPrimeQuadratic(levels, dprimes, plot=False)
+      dpq = FitQuadraticMonomialCurve(levels, dprimes, plot=False)
 
     if np.isfinite(dpq.compute(manual_threshold)):
       matched_levels.append(manual_threshold)
@@ -458,7 +303,7 @@ def show_dprime_interpolation(basedir: str, manual_df, mouse_id: int = 140,
     print(i, freq)
     plt.subplot(3, 3, i+1)
     levels, dprimes, dprimes_without_noise = calculate_dprime_stack(good_df, freq)
-    dpq = DPrimePower(levels, dprimes, plot=True)
+    dpq = FitPowerCurve(levels, dprimes, plot=True)
     manual_threshold_value = manual_df.loc[
       (manual_df['id'] == mouse_id) &
       (manual_df['timepoint'] == 0) &
@@ -600,8 +445,14 @@ def main(argv):
   plt.ylim(-0.25, 1.5)
   plt.savefig('Results/ThresholdComparisonManual.png')
 
-  accuracies = evaluate_thresholds(summaries, error_threshold=10)
-  print('Accuracies versus d\':', accuracies)
+  trial_dprimes, accuracies = evaluate_thresholds(summaries, error_threshold=10)
+  print('Covariance accuracies on ABRPresto data versus d\':', accuracies)
+  plt.clf()
+  plt.semilogx(trial_dprimes, accuracies, 'o-')
+  plt.xlabel('D-prime Threshold')
+  plt.ylabel('Accuracy within 10dB of Manual Threshold')
+  plt.title('Accuracy of D-prime Thresholds Compared to Manual Thresholds')
+  plt.savefig('Results/ABRPrestoThresholdAccuracy.png')
 
   show_dprime_interpolation(FLAGS.basedir, manual_df, mouse_id=242, 
                             timepoint=0, channel='left',
