@@ -234,9 +234,9 @@ def summarize_all_data(manual_df: pd,
       (abr_presto_df['ear'] == ear) &
       (abr_presto_df['frequency'] == frequency),
       'threshold'].values[0]
-    abr_summary.dprime_at_manual_threshold = dpq.compute_dprime(manual_threshold)
-    abr_summary.dprime_at_abrpresto_threshold = dpq.compute_dprime(abr_summary.abrpresto_threshold)
-    abr_summary.dprime_thresholds = [dpq.compute_level(d) for d in trial_dprimes]
+    abr_summary.dprime_at_manual_threshold = dpq.compute(manual_threshold)
+    abr_summary.dprime_at_abrpresto_threshold = dpq.compute(abr_summary.abrpresto_threshold)
+    abr_summary.dprime_thresholds = [dpq.inverse_compute(d) for d in trial_dprimes]
     summaries[(mouse_id, timepoint, ear, frequency)] = abr_summary
   return summaries
 
