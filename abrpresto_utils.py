@@ -5,7 +5,26 @@ from scipy.optimize import curve_fit
 from numpy import polynomial as poly
 
 
-class FitQuadraticMonomialCurve(object):
+class FitCurve(object):
+  """Base class for fitting curves to d' vs. level data."""
+  def __init__(self, levels: ArrayLike, dprimes: ArrayLike, plot=False):
+    raise NotImplementedError("Subclasses should implement this method.")
+
+  def compute(self, levels: ArrayLike) -> ArrayLike:
+    raise NotImplementedError("Subclasses should implement this method.")
+
+  def inverse_compute(self, target_dprime: float) -> float:
+    raise NotImplementedError("Subclasses should implement this method.")
+
+  def rms_error(self, levels: ArrayLike, dprimes: ArrayLike) -> float:
+    """Calculate mean squared error between the fitted curve and the actual data."""
+    computed_dprimes = self.compute(levels)
+    mse = np.mean((dprimes - computed_dprimes) ** 2)
+    return mse / len(levels)
+
+class FitQuadraticMonomialCurve(FitCurve):
+  """Fit a quadratic monomial curve (d' = a * level^2) to the data
+  """
   def __init__(self, levels: ArrayLike, dprimes: ArrayLike, order: int = 2, plot=False):
     self.coefficients = poly.polynomial.polyfit(levels, dprimes, deg=[2,])
     if plot:
@@ -61,7 +80,12 @@ class FitQuadraticMonomialCurve(object):
           return min(root1, root2) # Take the smaller root on the increasing side
 
 
-class FitPowerCurve(object):
+class FitPowerCurve(FitCurve):
+  """
+  Fit a power curve above a breakpoint, of the form
+    d' = a * (level - breakpoint)^2 for level > breakpoint, else 0
+  to the data
+  """
   def piecewise_func(self, level, breakpoint, a):
     # If level < breakpoint, return 0. Otherwise, return a * level^2
     # Changed np.max to np.maximum for element-wise comparison
@@ -110,7 +134,7 @@ class FitPowerCurve(object):
     return estimated_level
 
 
-def get_level_for_dprime(levels, dprimes, target_dprime):
+def XXget_level_for_dprime(levels, dprimes, target_dprime):
   """Estimates the sound level required to achieve a given d-prime value.
 
   Args:
@@ -166,7 +190,11 @@ def get_level_for_dprime(levels, dprimes, target_dprime):
   else:
     return valid_roots[0]
 
-class FitSigmoidCurve(object):
+class FitSigmoidCurve(FitCurve):
+  """Fit a sigmoid curve to the data, of the form
+    d' = L / (1 + exp(-k*(level - x0))) + b
+  where L is the maximum value of the sigmoid, x0 is the midpoint, k is the steepness, and b is the baseline.
+  """
   @staticmethod
   def _sigmoid_func(x, L, x0, k, b):
     """Sigmoid function."""
@@ -217,7 +245,7 @@ class FitSigmoidCurve(object):
             plt.grid(True)
         self.L_fit, self.x0_fit, self.k_fit, self.b_fit = float('nan'), float('nan'), float('nan'), float('nan')
 
-  def rms_error(self, levels: ArrayLike, dprimes: ArrayLike) -> float:
+  def XXrms_error(self, levels: ArrayLike, dprimes: ArrayLike) -> float:
     """Calculate mean squared error between the fitted sigmoid and the actual data."""
     if np.isnan(self.L_fit):
       return float('nan')

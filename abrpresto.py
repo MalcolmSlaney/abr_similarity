@@ -24,6 +24,8 @@ from analyze import calculate_jackknife_covariance, randomize_phase
 from abrpresto_utils import FitPowerCurve, FitQuadraticMonomialCurve, FitSigmoidCurve
 
 
+################## Access the published ABRPresto data  ##################
+
 def read_experiment_data(path):
   """Load all the data for one animal experiment given its experiment name.
   One animal, one time, left/right
@@ -38,11 +40,6 @@ def read_experiment_data(path):
   fh = abr.load(path)
   epochs = fh.get_epochs_filtered(**load_options)
   return epochs.sort_index()
-
-  # for freq, freq_df in epochs.groupby('frequency'):
-  #   yield freq, freq_df
-
-
 
 
 def get_mouse_data(basedir, mouse_number, timepoint=None, left='*'):
@@ -62,7 +59,6 @@ def get_mouse_data(basedir, mouse_number, timepoint=None, left='*'):
   if len(exps) == 0:
     raise IOError(f'No experiments found for mouse {mouse_number}')
   return read_experiment_data(exps[0])
-
 
 
 def get_unique_levels(freq_df):
@@ -87,7 +83,6 @@ def get_summary(df):
   return get_unique_levels(df), get_unique_freqs(df), get_unique_polarities(df)
 
 
-
 def get_one_exp_type(one_exp_data, freq, level, polarity='both'):
   """From a panda dataframe containing all the data from one experiment,
   extract the ERPs for one frequency, sound level, and one or
@@ -109,6 +104,7 @@ def get_one_exp_type(one_exp_data, freq, level, polarity='both'):
   assert result.shape[1] == 243
   return result
 
+################## Calculate Similarity and d' ##################
 
 
 def calculate_similarity(
@@ -190,6 +186,7 @@ def evaluate_thresholds(
   accuracies /= len(summaries)
   return trial_dprimes, accuracies
 
+##################  Summarize all the ABRPresto data  ##################
 
 def summarize_all_data(manual_df: pd, 
                        abr_presto_df: pd, 
@@ -364,6 +361,7 @@ def clean_key(key):
 def restore_key(cleaned_key):
   return tuple(cleaned_key.split(' '))
 
+##################  Summarize all the ABRPresto data  ##################
 
 def main(argv):
   del argv  # Unused
