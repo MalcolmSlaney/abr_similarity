@@ -1,5 +1,5 @@
 import absl.app
-import absl.flags
+import absl.flags as flags
 
 import os
 import pandas as pd
@@ -14,6 +14,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 import numpy.polynomial.polynomial as poly
 from scipy.optimize import curve_fit
+from scipy.signal import butter, lfilter
 
 import matplotlib.pyplot as plt
 import zarr
@@ -41,8 +42,13 @@ def read_experiment_data(path):
   epochs = fh.get_epochs_filtered(**load_options)
   return epochs.sort_index()
 
+get_mouse_data_last_mouse_key: Optional[Tuple[int, int, int]] = None
+get_mouse_data_last_data: Optional[pd.DataFrame] = None
 
-def get_mouse_data(basedir, mouse_number, timepoint=None, left='*'):
+def get_mouse_data(basedir: str, 
+                   mouse_number: int, 
+                   timepoint: Optional[int] = None, 
+                   left: str = '*')  -> pd.DataFrame:
   """Read all the ABR data from one experimental directory.  A directory
   seems to containe one animal, one ear, and one day in time.  The resulting
   data frame has multiple frequencies, levels, signal polarities, and the
@@ -51,6 +57,14 @@ def get_mouse_data(basedir, mouse_number, timepoint=None, left='*'):
   Returns:
     A dataframe
   """
+  global get_mouse_data_last_mouse_key, get_mouse_data_last_data
+
+  # Check if we're requesting the same data as last time, and if so, return the 
+  # cached data instead of reading from disk again.
+  mouse_key = (basedir, mouse_number, timepoint, left)
+  if mouse_key == get_mouse_data_last_mouse_key:
+    return get_mouse_data_last_data
+
   if timepoint is None:
     timepoint = '*'
   exps = glob.glob(os.path.join(basedir, f'Mouse{mouse_number}_timepoint{timepoint}_{left} *'))
@@ -58,7 +72,12 @@ def get_mouse_data(basedir, mouse_number, timepoint=None, left='*'):
     raise ValueError(f'Got more than one experiment: {[d.replace(basedir + "/", "") for d in exps]}')
   if len(exps) == 0:
     raise IOError(f'No experiments found for mouse {mouse_number}')
-  return read_experiment_data(exps[0])
+
+  # Save the result to the last-call cache.
+  data = read_experiment_data(exps[0])
+  get_mouse_data_last_mouse_key = mouse_key
+  get_mouse_data_last_data = data
+  return data
 
 
 def get_unique_levels(freq_df):
@@ -166,8 +185,14 @@ from dataclasses import dataclass, field
 trial_dprimes = [.001, .0025, 0.05, .01, 0.025, 0.5, 0.1, 0.25, 0.5, 1.0]
 @dataclass
 class ABRSummary(object):
+  """Summarize the data from one ABRPresto experiment across levels, which is 
+  for one mouse, one timepoint, one ear, and one frequency.  
+  """
+  levels: List[float] = field(default_factory=list)  # One per experiment
   manual_threshold: float = 0
   abrpresto_threshold: float = 0
+  replication_means: List[float] = field(default_factory=list)  # One per exeriment
+  replication_stds: List[float] = field(default_factory=list)  # One per experiment
   dprime_at_manual_threshold: float = 0
   dprime_at_abrpresto_threshold: float = 0
   dprime_thresholds: List[float] = field(default_factory=list)  # One per trial_dprimes
@@ -192,7 +217,6 @@ def summarize_all_data(manual_df: pd,
                        abr_presto_df: pd, 
                        basedir: dir, 
                        power_fit: bool = True) -> Dict[Tuple, ABRSummary]:
-  last_mouse_key = None
   summaries = {}
   for index, row in manual_df.iterrows():
     mouse_id = row['id']
@@ -204,17 +228,10 @@ def summarize_all_data(manual_df: pd,
     else:
       continue
 
-    # We only want to get the mouse data off disk once, so keep track if the 
-    # same data is being requested again and only read from disk if it's a new 
-    # mouse/timepoint/ear combination.  This is because the threshold data has 
-    # multiple rows for each mouse/timepoint/ear combination, one for each 
-    # frequency.   
-    if last_mouse_key != (mouse_id, timepoint, ear):
-      try:
-        good_df = get_mouse_data(basedir, mouse_id, timepoint, ear)
-      except:
-        continue
-      last_mouse_key = (mouse_id, timepoint, ear)
+    try:
+      good_df = get_mouse_data(basedir, mouse_id, timepoint, ear)
+    except IOError:
+      continue
     print(f'Computing {mouse_id}: Timepoint: {timepoint}, Ear: {ear}, Frequency: {frequency}, Manual Threshold: {manual_threshold}')
     levels, dprimes, _ = calculate_dprime_stack(good_df, frequency, 
                                                 plot_stack=False)
@@ -234,6 +251,18 @@ def summarize_all_data(manual_df: pd,
     abr_summary.dprime_at_manual_threshold = dpq.compute(manual_threshold)
     abr_summary.dprime_at_abrpresto_threshold = dpq.compute(abr_summary.abrpresto_threshold)
     abr_summary.dprime_thresholds = [dpq.inverse_compute(d) for d in trial_dprimes]
+
+    # Replicate the stats from ABRPresto by calculating the correlation between 
+    # random halves of the data.
+    abrpresto_stats_by_level(good_df, frequency)
+    levels = get_unique_levels(good_df)
+    for level in levels:
+      data = get_one_exp_type(good_df, frequency, level, 'both')
+      levels, means, stds = abrpresto_stats_by_level(good_df, frequency)
+      abr_summary.levels = levels
+      abr_summary.replication_means = means
+      abr_summary.replication_stds = stds
+
     summaries[(mouse_id, timepoint, ear, frequency)] = abr_summary
   return summaries
 
@@ -343,16 +372,117 @@ def fit_linear_regression(levels: ArrayLike, dprimes: ArrayLike) -> Tuple[float,
   model.fit(X, y)
   return model.coef_[0], model.intercept_
 
-absl.flags.DEFINE_string('basedir', '../ABRPrestoData', 'Base directory containing the ABR data and threshold CSV files.')
-
 
 def compute_pearson_correlation(levels: ArrayLike, dprimes: ArrayLike) -> float:
   """Compute the Pearson correlation coefficient between levels and d-primes."""
   return np.corrcoef(levels, dprimes)[0, 1]
 
+##################  Replicate the ABRPresto Algorithm ##################
+
+def abrpresto_bandpass(data: NDArray, fs: float = 24414.0624999992) -> NDArray:
+  # Define filter parameters
+  order = 2
+  lowcut = 300  # Hz
+  highcut = 3000 # Hz
+
+  # Calculate normalized cutoff frequencies
+  nyquist = 0.5 * fs
+  low = lowcut / nyquist
+  high = highcut / nyquist
+
+  # Design the Butterworth filter
+  b, a = butter(order, [low, high], btype='band')
+
+  # Apply the filter to the mean signal
+  return lfilter(b, a, data, axis=1)
+
+
+def abrpresto_correlation(data: NDArray) -> float:
+  """Split the data into random halves, compute the median waveform of each
+  half, compute the correlation between these two group medians.  Return an 
+  array of all the correlation results.
+
+  Based on Fgiure 1 of Shaheen 2025
+  """
+  num_waveforms = data.shape[0]
+  num_times = data.shape[1]
+  resample_count = 500
+  correlations = np.zeros(resample_count)
+  for i in range(resample_count):
+    indices = np.arange(num_waveforms)
+    np.random.shuffle(indices)
+    group1 = data[indices[:num_waveforms//2]]
+    median1 = np.median(group1, axis=0)
+    group2 = data[indices[num_waveforms//2:]]
+    median2 = np.median(group2, axis=0)
+    correlations[i] = np.corrcoef(median1, median2)[0, 1]
+  return correlations
+
+def abrpresto_stats_by_level(mouse_data, 
+                             freq, 
+                             polarity=-1) -> Tuple[NDArray, NDArray, NDArray]:
+  freqs = get_unique_freqs(mouse_data)
+  if freq not in freqs:
+    assert ValueError(f"Can't find {freq} in experiment's frequencies", freqs)
+  levels = get_unique_levels(mouse_data)
+  means = np.zeros(len(levels))
+  stds = np.zeros(len(levels))
+  for i, level in enumerate(levels):
+    data = get_one_exp_type(mouse_data, freq, level, polarity)
+    correlations = abrpresto_correlation(data)
+    means[i] = np.mean(correlations)
+    stds[i] = np.std(correlations)
+  return np.asarray(levels), means, stds
+
+
+def abrpresto_threshold(levels, means, criterion=0.3, plot=False):
+  if np.all(means > criterion):
+    return -np.inf
+  elif np.all(means < -criterion):
+    return np.inf
+
+  sigmoid_fit = FitSigmoidCurve(levels, means)
+  sigmoid_rms = sigmoid_fit.rms_error(levels, means)
+
+  power_fit = FitQuadraticMonomialCurve(levels, means)
+  power_rms = power_fit.rms_error(levels, means)
+
+  if sigmoid_rms < power_rms:
+    fit = sigmoid_fit
+    label = 'Sigmoid Fit'
+  elif sigmoid_rms > power_rms:
+    fit = power_fit
+    label = 'Power Fit'
+
+  level_threshold = fit.inverse_compute(criterion)
+  if level_threshold < np.min(levels):
+    level_threshold =  -np.inf
+  elif level_threshold > np.max(levels):
+    level_threshold = np.inf
+
+  if plot:
+    plt.plot(levels, means, 'o-', label='Data')
+    plt.plot(levels, fit.compute(levels), '-', label=label)
+    plt.axvline(min(max(np.min(levels)-10, level_threshold), 
+                    np.max(levels)+10), ls='--', label='Malcolm')
+    # plt.axhline(criterion, ls=':')
+    plt.legend()
+    plt.xlabel('Level (dB)')
+    plt.ylabel('ABRPresto Correlation')
+  return level_threshold
+  
+
+##################  Main Program ##################
+
+flags.DEFINE_string('basedir', '../ABRPrestoData', 'Base directory containing the ABR data and threshold CSV files.')
+
 FLAGS = absl.flags.FLAGS
 
 
+# Next functions replace tuple with string of keys for JSON serialization.  
+# We can restore the tuple keys when we read the JSON back in.  This is because 
+# JSON does not support non-string keys in dictionaries, and our summaries 
+# dictionary uses tuples as keys.
 def clean_key(key):
     # Example transformation: replace "item" with "object"
     return " ".join([str(k) for k in key])
@@ -361,7 +491,6 @@ def clean_key(key):
 def restore_key(cleaned_key):
   return tuple(cleaned_key.split(' '))
 
-##################  Summarize all the ABRPresto data  ##################
 
 def main(argv):
   del argv  # Unused
