@@ -63,6 +63,7 @@ def get_mouse_data(basedir: str,
   # cached data instead of reading from disk again.
   mouse_key = (basedir, mouse_number, timepoint, left)
   if mouse_key == get_mouse_data_last_mouse_key:
+    print(f'Using cached data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
     return get_mouse_data_last_data
 
   if timepoint is None:
@@ -75,6 +76,7 @@ def get_mouse_data(basedir: str,
 
   # Save the result to the last-call cache.
   data = read_experiment_data(exps[0])
+  print(f'Computing data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
   get_mouse_data_last_mouse_key = mouse_key
   get_mouse_data_last_data = data
   return data
@@ -217,6 +219,17 @@ def summarize_all_data(manual_df: pd,
                        abr_presto_df: pd, 
                        basedir: dir, 
                        power_fit: bool = True) -> Dict[Tuple, ABRSummary]:
+  """
+  Go through all the rows of the manual threshold data frame, which has one row 
+  per mouse/timepoint/ear/frequency combination, and for each row, 
+    read the corresponding waveform ABR data from disk,
+    compute the d-prime at each level, 
+    fit a curve to the d-prime vs. level data, 
+    that curve to compute the d-prime at the thresholds,  
+    repeat the ABRPresto paper calculations.
+  Store all this information in an ABRSummary object and return a dictionary 
+  mapping from (mouse_id, timepoint, ear, frequency) to ABRSummary.
+  """
   summaries = {}
   for index, row in manual_df.iterrows():
     mouse_id = row['id']
@@ -259,9 +272,9 @@ def summarize_all_data(manual_df: pd,
     for level in levels:
       data = get_one_exp_type(good_df, frequency, level, 'both')
       levels, means, stds = abrpresto_stats_by_level(good_df, frequency)
-      abr_summary.levels = levels
-      abr_summary.replication_means = means
-      abr_summary.replication_stds = stds
+      abr_summary.levels = levels.tolist()
+      abr_summary.replication_means = means.tolist()
+      abr_summary.replication_stds = stds.tolist()
 
     summaries[(mouse_id, timepoint, ear, frequency)] = abr_summary
   return summaries
