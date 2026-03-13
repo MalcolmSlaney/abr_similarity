@@ -76,7 +76,7 @@ def get_mouse_data(basedir: str,
 
   # Save the result to the last-call cache.
   data = read_experiment_data(exps[0])
-  print(f'Computing data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
+  print(f'Loading data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
   get_mouse_data_last_mouse_key = mouse_key
   get_mouse_data_last_data = data
   return data
@@ -181,7 +181,6 @@ def calculate_dprime_stack(exp_df: pd.DataFrame, freq: float, plot_stack: bool =
   return levels, dprimes, dprimes_wo_noise
 
 
-
 from dataclasses import dataclass, field
 
 trial_dprimes = [.001, .0025, 0.05, .01, 0.025, 0.5, 0.1, 0.25, 0.5, 1.0]
@@ -190,9 +189,9 @@ class ABRSummary(object):
   """Summarize the data from one ABRPresto experiment across levels, which is 
   for one mouse, one timepoint, one ear, and one frequency.  
   """
+  manual_threshold: float = 0 # From ABRPresto dataset
+  abrpresto_threshold: float = 0 # From ABRPresto dataset
   levels: List[float] = field(default_factory=list)  # One per experiment
-  manual_threshold: float = 0
-  abrpresto_threshold: float = 0
   replication_means: List[float] = field(default_factory=list)  # One per exeriment
   replication_stds: List[float] = field(default_factory=list)  # One per experiment
   dprime_at_manual_threshold: float = 0
