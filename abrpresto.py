@@ -76,7 +76,7 @@ def get_mouse_data(basedir: str,
 
   # Save the result to the last-call cache.
   data = read_experiment_data(exps[0])
-  print(f'Loading data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
+  # print(f'Loading data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
   get_mouse_data_last_mouse_key = mouse_key
   get_mouse_data_last_data = data
   return data
@@ -189,14 +189,25 @@ class ABRSummary(object):
   """Summarize the data from one ABRPresto experiment across levels, which is 
   for one mouse, one timepoint, one ear, and one frequency.  
   """
+  # Mouse experiment identifying information
+  mouse_id: int
+  timepoint: int
+  ear: str
+  frequency: float
+  # From the dataframes provided with the ABRPresto paper, which are the 
+  # "ground truth" thresholds that we want to compare to.
   manual_threshold: float = 0 # From ABRPresto dataset
   abrpresto_threshold: float = 0 # From ABRPresto dataset
-  levels: List[float] = field(default_factory=list)  # One per experiment
-  replication_means: List[float] = field(default_factory=list)  # One per exeriment
-  replication_stds: List[float] = field(default_factory=list)  # One per experiment
+  # These are the means and standard deviations of the ABRPresto correlation 
+  # statistic at each level, which we can use to replicate the ABRPresto 
+  # algorithm and compare to the thresholds.
+  replication_means: List[float] = field(default_factory=list)  # One per level
+  replication_stds: List[float] = field(default_factory=list)  # One per level
   dprime_at_manual_threshold: float = 0
   dprime_at_abrpresto_threshold: float = 0
-  dprime_thresholds: List[float] = field(default_factory=list)  # One per trial_dprimes
+  # These are the d-prime values computed here for the levels indicated here.
+  levels: List[float] = field(default_factory=list)  # Which levels were recorded
+  dprime_thresholds: List[float] = field(default_factory=list)  # Corresponding d-prime values at those levels
 
 
 def evaluate_thresholds(
@@ -214,8 +225,31 @@ def evaluate_thresholds(
 
 ##################  Summarize all the ABRPresto data  ##################
 
+def get_all_manual_thresholds(manual_df: pd.DataFrame,
+                              abrpresto_df: pd.DataFrame) -> List[Tuple]:
+  all_manual_thresholds = []
+  for index, row in manual_df.iterrows():
+    mouse_id = row['id']
+    timepoint = row['timepoint']
+    ear = row['ear']
+    frequency = row['frequency']
+    if 'manual threshold' in row:
+      manual_threshold = row['manual threshold']
+    else:
+      continue
+    abrpresto_threshold = abrpresto_df.loc[
+        (abrpresto_df['id'] == mouse_id) &
+        (abrpresto_df['timepoint'] == timepoint) &
+        (abrpresto_df['ear'] == ear) &
+        (abrpresto_df['frequency'] == frequency),
+        'threshold'].values[0]
+    all_manual_thresholds.append([mouse_id, timepoint, ear, frequency,
+                                 manual_threshold, abrpresto_threshold])
+  return all_manual_thresholds
+
+
 def summarize_all_data(manual_df: pd, 
-                       abr_presto_df: pd, 
+                       abrpresto_df: pd, 
                        basedir: dir, 
                        power_fit: bool = True) -> Dict[Tuple, ABRSummary]:
   """
@@ -240,43 +274,69 @@ def summarize_all_data(manual_df: pd,
     else:
       continue
 
-    try:
-      good_df = get_mouse_data(basedir, mouse_id, timepoint, ear)
-    except IOError:
-      continue
-    print(f'Computing {mouse_id}: Timepoint: {timepoint}, Ear: {ear}, Frequency: {frequency}, Manual Threshold: {manual_threshold}')
-    levels, dprimes, _ = calculate_dprime_stack(good_df, frequency, 
-                                                plot_stack=False)
-    print(f'Levels: {levels}, D-primes: {dprimes}')
-    if power_fit:
-      dpq = FitPowerCurve(levels, dprimes, plot=False)
-    else:
-      dpq = FitQuadraticMonomialCurve(levels, dprimes, plot=False)
-    abr_summary = ABRSummary()
-    abr_summary.manual_threshold = manual_threshold
-    abr_summary.abrpresto_threshold = abr_presto_df.loc[
-      (abr_presto_df['id'] == mouse_id) &
-      (abr_presto_df['timepoint'] == timepoint) &
-      (abr_presto_df['ear'] == ear) &
-      (abr_presto_df['frequency'] == frequency),
-      'threshold'].values[0]
-    abr_summary.dprime_at_manual_threshold = dpq.compute(manual_threshold)
-    abr_summary.dprime_at_abrpresto_threshold = dpq.compute(abr_summary.abrpresto_threshold)
-    abr_summary.dprime_thresholds = [dpq.inverse_compute(d) for d in trial_dprimes]
+    abrpresto_threshold = abrpresto_df.loc[
+          (abrpresto_df['id'] == mouse_id) &
+          (abrpresto_df['timepoint'] == timepoint) &
+          (abrpresto_df['ear'] == ear) &
+          (abrpresto_df['frequency'] == frequency),
+          'threshold'].values[0]
+    summary = compute_one_abrpresto_summary(
+      mouse_id, timepoint, ear, frequency, 
+      manual_threshold, abrpresto_threshold, basedir, power_fit)
+    if summary is not None:
+      summaries[(mouse_id, timepoint, ear, frequency)] = summary
+  
+def compute_one_abrpresto_summary(
+    mouse_id: int, timepoint: int, ear: str, 
+    frequency: float, manual_threshold: float, abrpresto_threshold: float, 
+    basedir: str, power_fit: bool) -> Optional[ABRSummary]:  
+  """Compute all the ABR summary data for one mouse/timepoint/ear/frequency 
+  combination, which is one row of the manual threshold data frame.  
+  This includes:
+  - The d-prime at each level, which is obtained by fitting a curve to the 
+      d-prime vs. level data and then interpolating to find the d-prime value at
+      the threshold level.
+  - The ABRPresto stats by level, which is obtained by replicating the 
+      ABRPresto algorithm of splitting the data into random halves, 
+      computing the median waveform of each half, computing the correlation 
+      between these two group medians, and then calculating the mean and 
+      standard deviation of these correlations across random splits of the data.  
+      This is done for each level, and the resulting means and standard 
+      deviations are stored in the ABRSummary object.
+  """
+  try:
+    good_df = get_mouse_data(basedir, mouse_id, timepoint, ear)
+  except IOError:
+    return None
+  # print(f'Computing {mouse_id}: Timepoint: {timepoint}, Ear: {ear}, Frequency: '
+  #      f'{frequency}, Manual Threshold: {manual_threshold}')
+  levels, dprimes, _ = calculate_dprime_stack(good_df, frequency, 
+                                              plot_stack=False)
+  # print(f'Levels: {levels}, D-primes: {dprimes}')
+  if power_fit:
+    dpq = FitPowerCurve(levels, dprimes, plot=False)
+  else:
+    dpq = FitQuadraticMonomialCurve(levels, dprimes, plot=False)
+  abr_summary = ABRSummary(mouse_id, timepoint=timepoint, 
+                            ear=ear, frequency=frequency)
+  abr_summary.manual_threshold = manual_threshold
+  abr_summary.abrpresto_threshold = abrpresto_threshold
 
-    # Replicate the stats from ABRPresto by calculating the correlation between 
-    # random halves of the data.
-    abrpresto_stats_by_level(good_df, frequency)
-    levels = get_unique_levels(good_df)
-    for level in levels:
-      data = get_one_exp_type(good_df, frequency, level, 'both')
-      levels, means, stds = abrpresto_stats_by_level(good_df, frequency)
-      abr_summary.levels = levels.tolist()
-      abr_summary.replication_means = means.tolist()
-      abr_summary.replication_stds = stds.tolist()
+  abr_summary.dprime_at_manual_threshold = dpq.compute(manual_threshold)
+  abr_summary.dprime_at_abrpresto_threshold = dpq.compute(abr_summary.abrpresto_threshold)
+  abr_summary.dprime_thresholds = [dpq.inverse_compute(d) for d in trial_dprimes]
 
-    summaries[(mouse_id, timepoint, ear, frequency)] = abr_summary
-  return summaries
+  # Replicate the stats from ABRPresto by calculating the correlation between 
+  # random halves of the data.
+  abrpresto_stats_by_level(good_df, frequency)
+  levels = get_unique_levels(good_df)
+  for level in levels:
+    data = get_one_exp_type(good_df, frequency, level, 'both')
+    levels, means, stds = abrpresto_stats_by_level(good_df, frequency)
+    abr_summary.levels = levels.tolist()
+    abr_summary.replication_means = means.tolist()
+    abr_summary.replication_stds = stds.tolist()
+  return abr_summary
 
 
 def compare_dprime_to_thresholds(threshold_df, basedir: str, power_fit: bool = True):
