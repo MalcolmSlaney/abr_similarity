@@ -2,6 +2,7 @@ import multiprocessing as mp
 from dataclasses import dataclass, asdict
 import json
 import pprint
+import sys
 from typing import Dict, List, Tuple
 import time
 
@@ -143,6 +144,7 @@ def main(argv):
               print(f"--> Checkpoint: Saving partial results ({i}/{total_tasks} complete)...")
               with open(FLAGS.output_path, "w") as fp:
                   json.dump(results_dict, fp, indent=4)
+          sys.stdout.flush()  # Flush status messages so far
 
   # Final Output Summary
   print("\n--- Processing Complete ---")
