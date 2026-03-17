@@ -8,8 +8,8 @@ import time
 import absl.flags as flags
 import absl.app as app 
 
-from abrpresto import compute_one_abrpresto_summary, get_threshold_data
-from abrpresto import ABRSummary, get_all_manual_thresholds
+from abrpresto import compute_one_abrpresto_summary, combine_all_thresholds
+from abrpresto import ABRSummary, get_threshold_data
 
 
 # Define the error-handling wrapper function
@@ -31,7 +31,45 @@ def compute_wrapper(args: tuple) -> tuple:
         return (False, failed_key, str(e))
 
 
-# basedir flag is defined in abrpresto.py, so it is aready defined and imported.c
+def load_results_from_json(json_path: str) -> Dict[str, Dict]:
+  """Utility function to load results from a JSON file."""
+  try:
+    with open(json_path, 'r') as fp:
+      results_dict = json.load(fp)
+    assert isinstance(results_dict, dict), f"Expected a dictionary in the JSON file, got {type(results_dict)}"
+    new_results_dict = {}
+    for k, v in results_dict.items():
+      k = k.split('_')
+      k = (int(k[0]), int(k[1]), k[2], float(k[3]))  # Convert to tuple with correct types
+      assert len(k) == 4, f"Expected key format 'mouse_id_timepoint_ear_frequency', got {k}"
+      new_results_dict[k] = ABRSummary(**v)
+    return new_results_dict
+
+  except FileNotFoundError:
+    print(f"No existing file found at {json_path}. Starting with an empty dictionary.")
+  return {}
+
+
+def filter_threshold_results(all_thresholds: List[tuple],  # All thresholds
+                             results_dict: Dict[str, Dict] # Those already done
+                             ) -> List[Tuple]:
+  """Filters the list of all thresholds to only remove those that haven't been 
+  processed yet."""
+  assert isinstance(all_thresholds, list), f"Expected all_thresholds to be a list, got {type(all_thresholds)}"
+  assert isinstance(results_dict, dict), f"Expected results_dict to be a dict, got {type(results_dict)}"
+  filtered_thresholds = []
+  skipped_rows = 0
+  for row in all_thresholds:
+    assert len(row) >= 4, f"Expected at least 4 elements in each row, got {len(row)}: {row}"
+    key = (int(row[0]), int(row[1]), row[2], int(row[3]))  
+    if key not in results_dict:
+      filtered_thresholds.append(row)
+    else:
+      skipped_rows += 1
+  print(f"Filtered thresholds: {len(filtered_thresholds)} remaining, {skipped_rows} already processed.")
+  return filtered_thresholds
+
+# basedir flag is defined in abrpresto.py, so it is aready defined and imported
 flags.DEFINE_integer('max_rows', 0, 
                      'Number of rows in original manual thresholds file.')
 flags.DEFINE_integer('num_workers', 0, 
@@ -49,14 +87,26 @@ def main(argv):
 
   manual_df = get_threshold_data(FLAGS.basedir, 'Manual Thresholds.csv')
   abr_presto_df = get_threshold_data(FLAGS.basedir, 'ABRpresto thresholds 10-29-24.csv')
-  all_manual_thresholds = get_all_manual_thresholds(
+  all_thresholds = combine_all_thresholds(
       manual_df=manual_df,
       abrpresto_df=abr_presto_df
   )
-  all_manual_thresholds = all_manual_thresholds[:FLAGS.max_rows] if FLAGS.max_rows > 0 else all_manual_thresholds
+  # Threshold data consists of: mouse_id, timepoint, ear, frequency,
+  #                             manual_threshold, abrpresto_threshold
+  if FLAGS.max_rows > 0:
+    print(f"Limiting to the first {FLAGS.max_rows} rows of the manual thresholds.")
+    all_thresholds = all_thresholds[:FLAGS.max_rows]
+
+  if True:
+    results_dict = load_results_from_json(FLAGS.output_path)
+    all_thresholds = filter_threshold_results(all_thresholds, results_dict)
+  # except Exception as e:
+  #   print(f"Error loading existing results: {e}")
+  #   print("Proceeding with all thresholds without filtering.")
+  #   results_dict = {}
 
   # Job input data
-  tasks = [(*row[:6], FLAGS.basedir, True) for row in all_manual_thresholds]
+  tasks = [(*row[:6], FLAGS.basedir, True) for row in all_thresholds]
   total_tasks = len(tasks)
   save_interval = max(1, int(total_tasks * FLAGS.cache_percent / 100))  # Save every X% of tasks
   num_workers = mp.cpu_count() - 1 or 1 
@@ -93,7 +143,7 @@ def main(argv):
 
           # --- Check if we hit the 5% interval threshold ---
           if i % save_interval == 0:
-              pprint.pprint(results_dict)
+              # pprint.pprint(results_dict)
               print(f"--> Checkpoint: Saving partial results ({i}/{total_tasks} complete)...")
               with open(FLAGS.output_path, "w") as fp:
                   json.dump(results_dict, fp, indent=4)

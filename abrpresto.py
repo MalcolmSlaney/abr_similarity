@@ -63,12 +63,14 @@ def get_mouse_data(basedir: str,
   # cached data instead of reading from disk again.
   mouse_key = (basedir, mouse_number, timepoint, left)
   if mouse_key == get_mouse_data_last_mouse_key:
-    print(f'Using cached data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
+    print(f'Using cached waveform data for mouse {mouse_number}, '
+          f'timepoint {timepoint}, ear {left}.')
     return get_mouse_data_last_data
 
   if timepoint is None:
     timepoint = '*'
-  exps = glob.glob(os.path.join(basedir, f'Mouse{mouse_number}_timepoint{timepoint}_{left} *'))
+  exps = glob.glob(
+    os.path.join(basedir, f'Mouse{mouse_number}_timepoint{timepoint}_{left} *'))
   if len(exps) > 1:
     raise ValueError(f'Got more than one experiment: {[d.replace(basedir + "/", "") for d in exps]}')
   if len(exps) == 0:
@@ -76,7 +78,6 @@ def get_mouse_data(basedir: str,
 
   # Save the result to the last-call cache.
   data = read_experiment_data(exps[0])
-  # print(f'Loading data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
   get_mouse_data_last_mouse_key = mouse_key
   get_mouse_data_last_data = data
   return data
@@ -193,7 +194,7 @@ class ABRSummary(object):
   mouse_id: int
   timepoint: int
   ear: str
-  frequency: float
+  frequency: int # Hz
   # From the dataframes provided with the ABRPresto paper, which are the 
   # "ground truth" thresholds that we want to compare to.
   manual_threshold: float = 0 # From ABRPresto dataset
@@ -208,6 +209,12 @@ class ABRSummary(object):
   # These are the d-prime values computed here for the levels indicated here.
   levels: List[float] = field(default_factory=list)  # Which levels were recorded
   dprime_thresholds: List[float] = field(default_factory=list)  # Corresponding d-prime values at those levels
+
+  def __post_init__(self):
+    self.mouse_id = int(self.mouse_id)
+    self.timepoint = int(self.timepoint)
+    self.ear = str(self.ear)
+    self.frequency = int(self.frequency)
 
 
 def evaluate_thresholds(
@@ -225,8 +232,8 @@ def evaluate_thresholds(
 
 ##################  Summarize all the ABRPresto data  ##################
 
-def get_all_manual_thresholds(manual_df: pd.DataFrame,
-                              abrpresto_df: pd.DataFrame) -> List[Tuple]:
+def combine_all_thresholds(manual_df: pd.DataFrame,
+                           abrpresto_df: pd.DataFrame) -> List[Tuple]:
   all_manual_thresholds = []
   for index, row in manual_df.iterrows():
     mouse_id = row['id']
@@ -244,7 +251,7 @@ def get_all_manual_thresholds(manual_df: pd.DataFrame,
         (abrpresto_df['frequency'] == frequency),
         'threshold'].values[0]
     all_manual_thresholds.append([mouse_id, timepoint, ear, frequency,
-                                 manual_threshold, abrpresto_threshold])
+                                  manual_threshold, abrpresto_threshold])
   return all_manual_thresholds
 
 
