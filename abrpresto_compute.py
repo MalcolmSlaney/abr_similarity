@@ -50,6 +50,12 @@ def load_results_from_json(json_path: str) -> Dict[str, Dict]:
     print(f"No existing file found at {json_path}. Starting with an empty dictionary.")
   return {}
 
+def save_results_to_json(results_dict: Dict[str, ABRSummary], json_path: str):
+  """Utility function to store results to a JSON file."""
+  serializable_dict = {f"{k[0]}_{k[1]}_{k[2]}_{k[3]}": asdict(v) for k, v in results_dict.items()}
+  with open(json_path, 'w') as fp:
+    json.dump(serializable_dict, fp, indent=4)
+
 
 def filter_threshold_results(all_thresholds: List[tuple],  # All thresholds
                              results_dict: Dict[str, Dict] # Those already done
@@ -130,20 +136,18 @@ def main(argv):
               summary = payload[0]
               if summary is None:
                   continue  # Returns none if the data isn't available on this machine.
-              key = str(summary.mouse_id) + "_" + str(summary.timepoint) + "_" + str(summary.ear) + "_" + str(summary.frequency)
-              results_dict[key] = asdict(summary)
+              results_dict[key] = summary
+              key = (summary.mouse_id, summary.timepoint, summary.ear, summary.frequency)
               print(f'Successfully processed {i}: {key}')
           else:
               failed_key, error_msg = payload
               failed_tasks.append((failed_key, error_msg))
               print(f"[!] Task failed for {failed_key}: {error_msg}")
 
-
           # --- Check if we hit the 5% interval threshold ---
           if i % save_interval == 0:
               print(f"--> Checkpoint: Saving partial results ({i}/{total_tasks} complete)...")
-              with open(FLAGS.output_path, "w") as fp:
-                  json.dump(results_dict, fp, indent=4)
+              save_results_to_json(results_dict, FLAGS.output_path)
           sys.stdout.flush()  # Flush status messages so far
 
   # Final Output Summary
@@ -153,8 +157,7 @@ def main(argv):
   print('Payload ends with:', payload)
   
   # You can now safely access your populated dictionary
-  with open(FLAGS.output_path, 'w') as fp:
-    json.dump(results_dict, fp, indent=4)
+  save_results_to_json(results_dict, FLAGS.output_path)
 
 if __name__ == "__main__":
     app.run(main)
