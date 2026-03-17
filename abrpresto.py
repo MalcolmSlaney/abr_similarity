@@ -78,6 +78,7 @@ def get_mouse_data(basedir: str,
 
   # Save the result to the last-call cache.
   data = read_experiment_data(exps[0])
+  # print(f'Loading data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
   get_mouse_data_last_mouse_key = mouse_key
   get_mouse_data_last_data = data
   return data
@@ -543,7 +544,7 @@ def abrpresto_threshold(levels, means, criterion=0.3, plot=False):
     plt.plot(levels, means, 'o-', label='Data')
     plt.plot(levels, fit.compute(levels), '-', label=label)
     plt.axvline(min(max(np.min(levels)-10, level_threshold), 
-                    np.max(levels)+10), ls='--', label='Malcolm')
+                    np.max(levels)+10), ls='--', label='Covariance Threshold')
     # plt.axhline(criterion, ls=':')
     plt.legend()
     plt.xlabel('Level (dB)')

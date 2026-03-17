@@ -112,9 +112,6 @@ def main(argv):
   num_workers = mp.cpu_count() - 1 or 1 
   num_workers = FLAGS.num_workers if FLAGS.num_workers > 0 else num_workers
   
-  # Dictionary for successful results
-  results_dict: Dict[str, Dict] = {}
-  
   # List to keep track of failed tasks
   failed_tasks = []
 
@@ -143,7 +140,6 @@ def main(argv):
 
           # --- Check if we hit the 5% interval threshold ---
           if i % save_interval == 0:
-              # pprint.pprint(results_dict)
               print(f"--> Checkpoint: Saving partial results ({i}/{total_tasks} complete)...")
               with open(FLAGS.output_path, "w") as fp:
                   json.dump(results_dict, fp, indent=4)
@@ -155,7 +151,6 @@ def main(argv):
   print('Payload ends with:', payload)
   
   # You can now safely access your populated dictionary
-  pprint.pprint(results_dict)
   with open(FLAGS.output_path, 'w') as fp:
     json.dump(results_dict, fp, indent=4)
 
