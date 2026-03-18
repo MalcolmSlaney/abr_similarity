@@ -136,8 +136,8 @@ def main(argv):
               summary = payload[0]
               if summary is None:
                   continue  # Returns none if the data isn't available on this machine.
-              results_dict[key] = summary
               key = (summary.mouse_id, summary.timepoint, summary.ear, summary.frequency)
+              results_dict[key] = summary
               print(f'Successfully processed {i}: {key}')
           else:
               failed_key, error_msg = payload
