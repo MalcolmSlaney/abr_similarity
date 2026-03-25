@@ -1,10 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
+import pandas as pd
+from scipy.fft import fft, fftfreq
 
 from absl.testing import absltest
 
 from abrpresto_utils import FitPowerCurve, FitQuadraticMonomialCurve, FitSigmoidCurve
+from abrpresto_utils import abrpresto_bandpass, dataframe_fs
 
 
 class FitPowerCurveTest(absltest.TestCase):
@@ -57,8 +60,6 @@ class FitPowerCurveTest(absltest.TestCase):
     # For this test, we assume fitting yields a positive 'fitted_a' as expected for ABR.
 
 
-from absl.testing import absltest
-import numpy as np
 
 class FitQuadraticMonoimialCurveTest(absltest.TestCase):
 
@@ -127,6 +128,130 @@ class SigmoidFit(absltest.TestCase):
     plt.savefig('Results/test_sigmoid_fit_example.png')
 
     self.assertLess(sigmoid_fit.rms_error(levels, dprimes), 0.01)
+
+
+def create_fake_df(verbose: bool = False):
+  # Define parameters for the fake DataFrame
+  num_rows = 5
+  num_time_points = 20
+
+  # Create MultiIndex levels
+  frequencies = [4000.0, 8000.0]
+  levels = [15.0, 20.0]
+  polarities = [-1, 1]
+  t0_values = [4.516987, 8.268104]
+  t0_values = np.arange(-0.001, 0.006, 1/22000.0) # Example time range in seconds
+  num_time_points = len(t0_values)
+
+  # Generate combinations for the MultiIndex
+  index_data = []
+  for freq in frequencies:
+      for lvl in levels:
+          for pol in polarities:
+              for t0 in t0_values:
+                  index_data.append((freq, lvl, pol, t0))
+
+  # Ensure we don't exceed num_rows for a cleaner example
+  index_data = index_data[:num_rows]
+
+  # Create the MultiIndex
+  multi_index = pd.MultiIndex.from_tuples(index_data, names=['frequency', 'level', 'polarity', 't0'])
+
+  # Create time columns
+  time_columns = np.linspace(-0.001, 0.005, num_time_points) # Example time range in seconds
+  time_columns = np.arange(-0.001, 0.006, 1/22000.0) # Example time range in seconds
+
+  # Create random data for the DataFrame
+  fake_data = np.random.rand(len(multi_index), num_time_points)
+
+  # Create the DataFrame
+  fake_df = pd.DataFrame(fake_data, index=multi_index, columns=time_columns)
+
+  print("Fake DataFrame created successfully:")
+  fake_df.head()
+  return fake_df
+
+def create_impulse_dataframe(data: pd.DataFrame, 
+                             impulse_time = 0.001, # 1 ms
+                             ):
+  # Get the first row's index
+  first_row_index = data.index[0]
+
+  # Get the time columns (which are the actual time values)
+  time_columns = data.columns.to_numpy()
+
+  # Create a new row of zeros
+  impulse_row_data = np.zeros(len(time_columns))
+
+  # Find the index closest to 1ms in the time columns
+  impulse_idx = np.searchsorted(time_columns, impulse_time)
+
+  # Set the value at the impulse_idx to 1
+  if 0 <= impulse_idx < len(impulse_row_data):
+      impulse_row_data[impulse_idx] = 1.0
+  else:
+      print(f"Warning: Impulse time {impulse_time}s is out of bounds for the data's time range.")
+
+  # Create a Series for the impulse response with the original time columns
+  impulse_series = pd.Series(impulse_row_data, index=time_columns, name=first_row_index)
+
+  # Replace the first row of the original 'data' DataFrame with the impulse series
+  data.loc[first_row_index] = impulse_series
+  return data
+
+
+class ColoredNoise(absltest.TestCase):
+  def test_frequency_response(self):
+    data = create_fake_df()
+    fs = dataframe_fs(data)
+    self.assertAlmostEqual(fs, 22000)
+
+    # Apply the bandpass filter and time-slicing
+    data_filtered = abrpresto_bandpass(data, fs=fs)
+
+    impulse_data = create_impulse_dataframe(data)
+    data_filtered_impulse = abrpresto_bandpass(data, fs=fs)
+    # Get the filtered impulse response and time vector
+    impulse_response = data_filtered_impulse.iloc[0].values
+    time_vector = data_filtered_impulse.columns.to_numpy()
+
+    # Calculate sampling frequency if not already defined (or ensure it's correct)
+    # fs was previously calculated as 1 / (data.columns[1] - data.columns[0])
+    # Let's re-verify from the time_vector of the *filtered* data
+    if len(time_vector) > 1:
+        fs_filtered = 1 / (time_vector[1] - time_vector[0])
+    else:
+        print("Warning: Cannot determine sampling frequency for filtered data, using original fs.")
+        fs_filtered = fs # Use the global fs if filtered data is too short
+
+    # Number of samples in the impulse response
+    N = len(impulse_response)
+
+    # Perform FFT
+    yf = fft(impulse_response)
+    xf = fftfreq(N, 1 / fs_filtered)
+
+    # Plot the magnitude of the FFT in dB
+    plt.figure(figsize=(10, 6))
+    # Add a small constant to avoid log(0) if yf contains zeros
+    plt.plot(xf, 20 * np.log10(np.abs(yf) + 1e-10))
+    plt.xscale('log')
+    plt.title('Filtered Impulse Response in Frequency Domain (Magnitude in dB)')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude (dB)')
+    plt.grid(True)
+    plt.axhline(-3, ls=':')
+    plt.axvline(300, ls='--')
+    plt.axhline(-3, ls=':')
+    plt.axvline(3000, ls='--')
+    # plt.xlim(xf[np.searchsorted(xf, 100)], fs_filtered / 2) # Start x-axis from a reasonable low frequency instead of 0 to avoid log(0)
+    # Adjust y-axis limits to better visualize the filter's characteristics if needed
+    plt.ylim(-40, 0) 
+    plt.show()
+    y300 = yf[np.abs(xf - 300).argmin()]
+    y3000 = yf[np.abs(xf - 3000).argmin()]
+    self.assertAlmostEqual(20*np.log10(np.abs(y300)), -3, delta=1.75)
+    self.assertAlmostEqual(20*np.log10(np.abs(y3000)), -3, delta=0.25)
 
 
 if __name__ == '__main__':

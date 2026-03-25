@@ -1,7 +1,9 @@
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 import matplotlib.pyplot as plt
+import pandas as pd
 from scipy.optimize import curve_fit
+from scipy.signal import butter, lfilter
 from numpy import polynomial as poly
 
 
@@ -132,6 +134,76 @@ class FitPowerCurve(FitCurve):
     level_diff = np.sqrt(arg_sqrt)
     estimated_level = self.fitted_breakpoint + level_diff
     return estimated_level
+
+
+def dataframe_fs(df: pd.DataFrame) -> float:
+  # Extract the column names as an array
+  time_array = df.columns.to_numpy()
+
+  # Calculate the differences between consecutive time steps
+  time_steps = np.diff(time_array)
+
+  # Use the mean of the steps to account for any tiny floating-point inaccuracies
+  dt = np.mean(time_steps)
+
+  # Calculate sampling frequency (1 divided by the time step)
+  return 1.0 / dt
+
+
+def abrpresto_bandpass(
+    data: pd.DataFrame,
+    fs: float,
+    low_freq: float = 300.0,
+    high_freq: float = 3000.0,
+    order: int = 2,
+    time_start: float = 0.0005, # seconds, equivalent to 0.5 ms
+    time_end: float = 0.006, # seconds, equivalent to 6 ms
+) -> pd.DataFrame:
+    """
+    Applies a bandpass filter and time-slices the data.
+
+    Args:
+        data: DataFrame containing time series data. The columns are time points.
+        fs: Sampling frequency in Hz.
+        low_freq: Low cutoff frequency in Hz.
+        high_freq: High cutoff frequency in Hz.
+        order: Order of the Butterworth filter.
+        time_start: Start time for slicing in seconds.
+        time_end: End time for slicing in seconds.
+
+    Returns:
+        A new DataFrame with filtered and time-sliced data.
+    """
+    nyq = 0.5 * fs
+    low = low_freq / nyq
+    high = high_freq / nyq
+    b, a = butter(order, [low, high], btype='band')
+
+    # Ensure filtered_data remains a DataFrame by explicitly returning a Series 
+    # with original index
+    filtered_data = data.apply(lambda x: pd.Series(lfilter(b, a, x.values), 
+                                                   index=x.index), axis=1)
+
+    # Slice the filtered data based on time_start and time_end
+    # Find the indices corresponding to time_start and time_end
+    time_columns = filtered_data.columns.to_numpy()
+    start_idx = np.searchsorted(time_columns, time_start)
+    end_idx = np.searchsorted(time_columns, time_end)
+
+    # Ensure the indices are within bounds
+    if start_idx == len(time_columns):
+        start_idx = len(time_columns) - 1
+    if end_idx == len(time_columns):
+        end_idx = len(time_columns) - 1
+    if start_idx > end_idx:
+        start_idx = end_idx # In case of inverted or out-of-range times, adjust to avoid empty slice.
+
+    # Slice the DataFrame
+    sliced_filtered_data = filtered_data.iloc[:, start_idx:end_idx]
+
+    return sliced_filtered_data
+
+
 
 
 def XXget_level_for_dprime(levels, dprimes, target_dprime):

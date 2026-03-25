@@ -23,7 +23,7 @@ from sklearn.linear_model import LinearRegression
 
 from analyze import calculate_jackknife_covariance, randomize_phase
 from abrpresto_utils import FitPowerCurve, FitQuadraticMonomialCurve, FitSigmoidCurve
-
+from abrpresto_utils import abrpresto_bandpass
 
 ################## Access the published ABRPresto data  ##################
 
@@ -48,14 +48,20 @@ get_mouse_data_last_data: Optional[pd.DataFrame] = None
 def get_mouse_data(basedir: str, 
                    mouse_number: int, 
                    timepoint: Optional[int] = None, 
-                   left: str = '*')  -> pd.DataFrame:
+                   left: str = '*',
+                   time_start: float = 0.5, # ms
+                   time_end: float = 6, # ms
+                   low_freq = 300, # Hz
+                   high_freq = 3000, # Hz
+                   )  -> pd.DataFrame:
   """Read all the ABR data from one experimental directory.  A directory
   seems to containe one animal, one ear, and one day in time.  The resulting
   data frame has multiple frequencies, levels, signal polarities, and the
   resulting ERP data.
 
   Returns:
-    A dataframe
+    A dataframe keyed by frequency, level, and polarity.  This df contains
+    rows of time-sampled ABR measurements. Columns are sample times in 
   """
   global get_mouse_data_last_mouse_key, get_mouse_data_last_data
 
@@ -78,6 +84,8 @@ def get_mouse_data(basedir: str,
 
   # Save the result to the last-call cache.
   data = read_experiment_data(exps[0])
+  data = abrpresto_bandpass(data)
+  
   # print(f'Loading data for mouse {mouse_number}, timepoint {timepoint}, ear {left}.')
   get_mouse_data_last_mouse_key = mouse_key
   get_mouse_data_last_data = data
@@ -316,6 +324,8 @@ def compute_one_abrpresto_summary(
     good_df = get_mouse_data(basedir, mouse_id, timepoint, ear)
   except IOError:
     return None
+
+  good_df = abrpresto_bandpass(data)
   # print(f'Computing {mouse_id}: Timepoint: {timepoint}, Ear: {ear}, Frequency: '
   #      f'{frequency}, Manual Threshold: {manual_threshold}')
   levels, dprimes, _ = calculate_dprime_stack(good_df, frequency, 
