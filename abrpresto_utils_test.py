@@ -130,17 +130,19 @@ class SigmoidFit(absltest.TestCase):
     self.assertLess(sigmoid_fit.rms_error(levels, dprimes), 0.01)
 
 
-def create_fake_df(verbose: bool = False):
+########################## ABRPresto Preprocessing ############################
+
+def create_fake_df(fs: float = 22000, verbose: bool = False):
+  """Create a dataframe that matches the characteristics of the ABRPresto
+  data."""
   # Define parameters for the fake DataFrame
   num_rows = 5
-  num_time_points = 20
 
   # Create MultiIndex levels
   frequencies = [4000.0, 8000.0]
   levels = [15.0, 20.0]
   polarities = [-1, 1]
-  t0_values = [4.516987, 8.268104]
-  t0_values = np.arange(-0.001, 0.006, 1/22000.0) # Example time range in seconds
+  t0_values = np.arange(-0.001, 0.006, 1/fs) # Example time range in seconds
   num_time_points = len(t0_values)
 
   # Generate combinations for the MultiIndex
@@ -158,8 +160,7 @@ def create_fake_df(verbose: bool = False):
   multi_index = pd.MultiIndex.from_tuples(index_data, names=['frequency', 'level', 'polarity', 't0'])
 
   # Create time columns
-  time_columns = np.linspace(-0.001, 0.005, num_time_points) # Example time range in seconds
-  time_columns = np.arange(-0.001, 0.006, 1/22000.0) # Example time range in seconds
+  time_columns = np.arange(-0.001, 0.006, 1/fs) # Example time range in seconds
 
   # Create random data for the DataFrame
   fake_data = np.random.rand(len(multi_index), num_time_points)
@@ -168,12 +169,15 @@ def create_fake_df(verbose: bool = False):
   fake_df = pd.DataFrame(fake_data, index=multi_index, columns=time_columns)
 
   print("Fake DataFrame created successfully:")
-  fake_df.head()
+  print(fake_df.head())
   return fake_df
 
 def create_impulse_dataframe(data: pd.DataFrame, 
                              impulse_time = 0.001, # 1 ms
                              ):
+  """Replace the first row of a dataframe to an impulse (at the given time)
+  so we can measure the filter's frequency response.
+  """
   # Get the first row's index
   first_row_index = data.index[0]
 
@@ -200,36 +204,27 @@ def create_impulse_dataframe(data: pd.DataFrame,
   return data
 
 
-class ColoredNoise(absltest.TestCase):
+class ABRPrestoPreprocessing(absltest.TestCase):
   def test_frequency_response(self):
-    data = create_fake_df()
+    desired_fs = 22000
+    data = create_fake_df(desired_fs)
     fs = dataframe_fs(data)
-    self.assertAlmostEqual(fs, 22000)
-
-    # Apply the bandpass filter and time-slicing
-    data_filtered = abrpresto_bandpass(data, fs=fs)
+    self.assertAlmostEqual(fs, desired_fs)
 
     impulse_data = create_impulse_dataframe(data)
-    data_filtered_impulse = abrpresto_bandpass(data, fs=fs)
+    data_filtered_impulse = abrpresto_bandpass(data, fs=desired_fs)
     # Get the filtered impulse response and time vector
     impulse_response = data_filtered_impulse.iloc[0].values
     time_vector = data_filtered_impulse.columns.to_numpy()
-
-    # Calculate sampling frequency if not already defined (or ensure it's correct)
-    # fs was previously calculated as 1 / (data.columns[1] - data.columns[0])
-    # Let's re-verify from the time_vector of the *filtered* data
-    if len(time_vector) > 1:
-        fs_filtered = 1 / (time_vector[1] - time_vector[0])
-    else:
-        print("Warning: Cannot determine sampling frequency for filtered data, using original fs.")
-        fs_filtered = fs # Use the global fs if filtered data is too short
+    self.assertAlmostEqual(np.min(time_vector), 0.0005) # ms
+    self.assertAlmostEqual(np.max(time_vector), 0.006, delta=2/fs) # ms
 
     # Number of samples in the impulse response
     N = len(impulse_response)
 
     # Perform FFT
     yf = fft(impulse_response)
-    xf = fftfreq(N, 1 / fs_filtered)
+    xf = fftfreq(N, 1 / desired_fs)
 
     # Plot the magnitude of the FFT in dB
     plt.figure(figsize=(10, 6))
