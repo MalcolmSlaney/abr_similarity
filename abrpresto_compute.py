@@ -5,6 +5,7 @@ import pprint
 import sys
 from typing import Dict, List, Tuple
 import time
+import traceback
 
 import absl.flags as flags
 import absl.app as app 
@@ -27,6 +28,8 @@ def compute_wrapper(args: tuple) -> tuple:
         # If it fails, grab the identifying keys from the args to know WHAT failed
         mouse_id, timepoint, ear, frequency = args[:4]
         failed_key = (mouse_id, timepoint, ear, frequency)
+        error_details = traceback.format_exc()
+        print(f"Captured error details:\n{error_details}")
         
         # Return False, the key, and the error message
         return (False, failed_key, str(e))

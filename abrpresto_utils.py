@@ -152,7 +152,7 @@ def dataframe_fs(df: pd.DataFrame) -> float:
 
 def abrpresto_bandpass(
     data: pd.DataFrame,
-    fs: float,
+    fs: float = 0,
     low_freq: float = 300.0,
     high_freq: float = 3000.0,
     order: int = 2,
@@ -174,6 +174,8 @@ def abrpresto_bandpass(
     Returns:
         A new DataFrame with filtered and time-sliced data.
     """
+    if not fs:
+      fs = dataframe_fs(data)
     nyq = 0.5 * fs
     low = low_freq / nyq
     high = high_freq / nyq
