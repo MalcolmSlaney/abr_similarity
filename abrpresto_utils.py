@@ -1,3 +1,7 @@
+# This file contains the 
+# 1) curve-fitting algorithms needed to smooth the correlation data, and 
+# 2) EEG Waveform preprocessing code (bandpass and time window)
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 import matplotlib.pyplot as plt
@@ -5,6 +9,8 @@ import pandas as pd
 from scipy.optimize import curve_fit
 from scipy.signal import butter, lfilter
 from numpy import polynomial as poly
+
+################# Curve Fitting Code ############################
 
 
 class FitCurve(object):
@@ -136,134 +142,6 @@ class FitPowerCurve(FitCurve):
     return estimated_level
 
 
-def dataframe_fs(df: pd.DataFrame) -> float:
-  # Extract the column names as an array
-  time_array = df.columns.to_numpy()
-
-  # Calculate the differences between consecutive time steps
-  time_steps = np.diff(time_array)
-
-  # Use the mean of the steps to account for any tiny floating-point inaccuracies
-  dt = np.mean(time_steps)
-
-  # Calculate sampling frequency (1 divided by the time step)
-  return 1.0 / dt
-
-
-def abrpresto_bandpass(
-    data: pd.DataFrame,
-    fs: float = 0,
-    low_freq: float = 300.0,
-    high_freq: float = 3000.0,
-    order: int = 2,
-    time_start: float = 0.0005, # seconds, equivalent to 0.5 ms
-    time_end: float = 0.006, # seconds, equivalent to 6 ms
-) -> pd.DataFrame:
-    """
-    Applies a bandpass filter and time-slices the data.
-
-    Args:
-        data: DataFrame containing time series data. The columns are time points.
-        fs: Sampling frequency in Hz.
-        low_freq: Low cutoff frequency in Hz.
-        high_freq: High cutoff frequency in Hz.
-        order: Order of the Butterworth filter.
-        time_start: Start time for slicing in seconds.
-        time_end: End time for slicing in seconds.
-
-    Returns:
-        A new DataFrame with filtered and time-sliced data.
-    """
-    if not fs:
-      fs = dataframe_fs(data)
-    nyq = 0.5 * fs
-    low = low_freq / nyq
-    high = high_freq / nyq
-    b, a = butter(order, [low, high], btype='band')
-
-    # Ensure filtered_data remains a DataFrame by explicitly returning a Series 
-    # with original index
-    filtered_data = data.apply(lambda x: pd.Series(lfilter(b, a, x.values), 
-                                                   index=x.index), axis=1)
-
-    # Slice the filtered data based on time_start and time_end
-    # Find the indices corresponding to time_start and time_end
-    time_columns = filtered_data.columns.to_numpy()
-    start_idx = np.searchsorted(time_columns, time_start)
-    end_idx = np.searchsorted(time_columns, time_end)
-
-    # Ensure the indices are within bounds
-    if start_idx == len(time_columns):
-        start_idx = len(time_columns) - 1
-    if end_idx == len(time_columns):
-        end_idx = len(time_columns) - 1
-    if start_idx > end_idx:
-        start_idx = end_idx # In case of inverted or out-of-range times, adjust to avoid empty slice.
-
-    # Slice the DataFrame
-    sliced_filtered_data = filtered_data.iloc[:, start_idx:end_idx]
-
-    return sliced_filtered_data
-
-
-
-
-def XXget_level_for_dprime(levels, dprimes, target_dprime):
-  """Estimates the sound level required to achieve a given d-prime value.
-
-  Args:
-    levels: A list or array of sound levels.
-    dprimes: A list or array of corresponding d-prime values.
-    target_dprime: The desired d-prime value.
-
-  Returns:
-    The estimated sound level (float) corresponding to the target d-prime.
-    Returns None if no real solution is found within the range of levels.
-  """
-  # Fit a quadratic polynomial to the levels and dprimes
-  poly_coeffs = np.polyfit(levels, dprimes, 2)
-
-  # Create a new polynomial for which we want to find the root:
-  # a*x^2 + b*x + c - target_dprime = 0
-  a, b, c = poly_coeffs[0], poly_coeffs[1], poly_coeffs[2] - target_dprime
-
-  # Solve the quadratic equation ax^2 + bx + c = 0 for x (level)
-  # Using the quadratic formula: x = (-b +- sqrt(b^2 - 4ac)) / 2a
-  discriminant = b**2 - 4*a*c
-
-  if discriminant < 0:
-    # No real roots
-    return None
-  elif discriminant == 0:
-    # One real root
-    root = -b / (2*a)
-    roots = [root]
-  else:
-    # Two real roots
-    root1 = (-b + np.sqrt(discriminant)) / (2*a)
-    root2 = (-b - np.sqrt(discriminant)) / (2*a)
-    roots = [root1, root2]
-
-  # Filter for roots that are within the range of the input levels
-  min_level, max_level = min(levels), max(levels)
-  valid_roots = [r for r in roots if min_level <= r <= max_level and np.isreal(r)]
-
-  if not valid_roots:
-    return None
-  
-  # Return the root closest to the center of the level range if multiple valid roots
-  # or simply the first valid root found
-  if len(valid_roots) > 1:
-    # If the d-prime curve is U-shaped, we generally want the higher level
-    # or the one that makes sense in the context of increasing d-prime with level
-    # For ABR, d-prime increases with level, so we want the larger root
-    if a > 0: # Parabola opens upwards, higher d' comes from higher level
-        return max(valid_roots)
-    else: # Parabola opens downwards, higher d' comes from lower level
-        return min(valid_roots)
-  else:
-    return valid_roots[0]
-
 class FitSigmoidCurve(FitCurve):
   """Fit a sigmoid curve to the data, of the form
     d' = L / (1 + exp(-k*(level - x0))) + b
@@ -319,14 +197,6 @@ class FitSigmoidCurve(FitCurve):
             plt.grid(True)
         self.L_fit, self.x0_fit, self.k_fit, self.b_fit = float('nan'), float('nan'), float('nan'), float('nan')
 
-  def XXrms_error(self, levels: ArrayLike, dprimes: ArrayLike) -> float:
-    """Calculate mean squared error between the fitted sigmoid and the actual data."""
-    if np.isnan(self.L_fit):
-      return float('nan')
-    dprimes_fit = self._sigmoid_func(levels, self.L_fit, self.x0_fit, self.k_fit, self.b_fit)
-    mse = np.mean((dprimes - dprimes_fit) ** 2)
-    return mse / len(levels) 
-
   def compute(self, levels: ArrayLike) -> ArrayLike:
     """Compute d-prime values for given levels using the fitted sigmoid."""
     return self._sigmoid_func(levels, self.L_fit, self.x0_fit, self.k_fit, self.b_fit)
@@ -344,4 +214,78 @@ class FitSigmoidCurve(FitCurve):
 
     estimated_level = self.x0_fit - np.log(term) / self.k_fit
     return estimated_level
+
+
+################# ABRPresto Preprocessing Code ############################
+
+def dataframe_fs(df: pd.DataFrame) -> float:
+  # Extract the column names as an array
+  time_array = df.columns.to_numpy()
+
+  # Calculate the differences between consecutive time steps
+  time_steps = np.diff(time_array)
+
+  # Use the mean of the steps to account for any tiny floating-point inaccuracies
+  dt = np.mean(time_steps)
+
+  # Calculate sampling frequency (1 divided by the time step)
+  return 1.0 / dt
+
+
+def abrpresto_bandpass(
+    data: pd.DataFrame,
+    fs: float = 0,
+    low_freq: float = 300.0,
+    high_freq: float = 3000.0,
+    order: int = 2,
+    time_start: float = 0.0005, # seconds, equivalent to 0.5 ms
+    time_end: float = 0.006, # seconds, equivalent to 6 ms
+) -> pd.DataFrame:
+    """
+    Applies a bandpass filter and time-slices the data. The time-domain window,
+    in particular, is important because there seems to be a glitch at the end of
+    the recordings, and this results in a large false correlation.
+
+    Args:
+        data: DataFrame containing time series data. The columns are time points.
+        fs: Sampling frequency in Hz.
+        low_freq: Low cutoff frequency in Hz.
+        high_freq: High cutoff frequency in Hz.
+        order: Order of the Butterworth filter.
+        time_start: Start time for slicing in seconds.
+        time_end: End time for slicing in seconds.
+
+    Returns:
+        A new DataFrame with filtered and time-sliced data.
+    """
+    if not fs:
+      fs = dataframe_fs(data)
+    nyq = 0.5 * fs
+    low = low_freq / nyq
+    high = high_freq / nyq
+    b, a = butter(order, [low, high], btype='band')
+
+    # Ensure filtered_data remains a DataFrame by explicitly returning a Series 
+    # with original index
+    filtered_data = data.apply(lambda x: pd.Series(lfilter(b, a, x.values), 
+                                                   index=x.index), axis=1)
+
+    # Slice the filtered data based on time_start and time_end
+    # Find the indices corresponding to time_start and time_end
+    time_columns = filtered_data.columns.to_numpy()
+    start_idx = np.searchsorted(time_columns, time_start)
+    end_idx = np.searchsorted(time_columns, time_end)
+
+    # Ensure the indices are within bounds
+    if start_idx == len(time_columns):
+        start_idx = len(time_columns) - 1
+    if end_idx == len(time_columns):
+        end_idx = len(time_columns) - 1
+    if start_idx > end_idx:
+        start_idx = end_idx # In case of inverted or out-of-range times, adjust to avoid empty slice.
+
+    # Slice the DataFrame
+    sliced_filtered_data = filtered_data.iloc[:, start_idx:end_idx]
+
+    return sliced_filtered_data
 

@@ -132,7 +132,7 @@ def get_one_exp_type(one_exp_data, freq, level, polarity='both'):
     result = pos[:num, :] + neg[:num, :]
   else:
     result = one_exp_data.loc[(freq, level, polarity)].to_numpy()
-  assert result.shape[1] == 243
+  assert result.shape[1] == 134 # Not 243 because we've trimmed in time.
   return result
 
 ################## Calculate Similarity and d' ##################
@@ -325,7 +325,7 @@ def compute_one_abrpresto_summary(
   except IOError:
     return None
 
-  good_df = abrpresto_bandpass(data)
+  good_df = abrpresto_bandpass(good_df)
   # print(f'Computing {mouse_id}: Timepoint: {timepoint}, Ear: {ear}, Frequency: '
   #      f'{frequency}, Manual Threshold: {manual_threshold}')
   levels, dprimes, _ = calculate_dprime_stack(good_df, frequency, 
@@ -466,25 +466,6 @@ def fit_linear_regression(levels: ArrayLike, dprimes: ArrayLike) -> Tuple[float,
 def compute_pearson_correlation(levels: ArrayLike, dprimes: ArrayLike) -> float:
   """Compute the Pearson correlation coefficient between levels and d-primes."""
   return np.corrcoef(levels, dprimes)[0, 1]
-
-##################  Replicate the ABRPresto Algorithm ##################
-
-def abrpresto_bandpass(data: NDArray, fs: float = 24414.0624999992) -> NDArray:
-  # Define filter parameters
-  order = 2
-  lowcut = 300  # Hz
-  highcut = 3000 # Hz
-
-  # Calculate normalized cutoff frequencies
-  nyquist = 0.5 * fs
-  low = lowcut / nyquist
-  high = highcut / nyquist
-
-  # Design the Butterworth filter
-  b, a = butter(order, [low, high], btype='band')
-
-  # Apply the filter to the mean signal
-  return lfilter(b, a, data, axis=1)
 
 
 def abrpresto_correlation(data: NDArray) -> float:
