@@ -219,6 +219,11 @@ class FitSigmoidCurve(FitCurve):
 ################# ABRPresto Preprocessing Code ############################
 
 def dataframe_fs(df: pd.DataFrame) -> float:
+  """
+  Calculate the sampling frequency of a DataFrame based on its column names, 
+  which represent time points. Assumes that the columns are sorted in ascending 
+  order.
+  """
   # Extract the column names as an array
   time_array = df.columns.to_numpy()
 

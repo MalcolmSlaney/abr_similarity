@@ -202,17 +202,20 @@ class ABRSummary(object):
   # Mouse experiment identifying information
   mouse_id: int
   timepoint: int
-  ear: str
+  ear: str       # 'left' or 'right'
   frequency: int # Hz
   # From the dataframes provided with the ABRPresto paper, which are the 
   # "ground truth" thresholds that we want to compare to.
-  manual_threshold: float = 0 # From ABRPresto dataset
-  abrpresto_threshold: float = 0 # From ABRPresto dataset
-  # These are the means and standard deviations of the ABRPresto correlation 
-  # statistic at each level, which we can use to replicate the ABRPresto 
-  # algorithm and compare to the thresholds.
+  manual_threshold: float = 0 #  To load from ABRPresto public dataset
+  abrpresto_threshold: float = 0 # To load from ABRPresto public dataset
+  
+  # Replicate the ABRPresto algorithm and store the means and levels here (from
+  # 500 splits of the data).
   replication_means: List[float] = field(default_factory=list)  # One per level
   replication_stds: List[float] = field(default_factory=list)  # One per level
+  # Use the fit_abrpresto_threshold function to compute the ABRPresto threshold 
+  # from these means and levels.
+
   dprime_at_manual_threshold: float = 0
   dprime_at_abrpresto_threshold: float = 0
   # These are the d-prime values computed here for the levels indicated here.
@@ -315,6 +318,8 @@ def compute_one_abrpresto_summary(
   """Compute all the ABR summary data for one mouse/timepoint/ear/frequency 
   combination, which is one row of the manual threshold data frame.  
   This includes:
+  - Preprocess the data by applying the same bandpass filter and time window
+    as published ABRPresto algorithm.
   - The d-prime at each level, which is obtained by fitting a curve to the 
       d-prime vs. level data and then interpolating to find the d-prime value at
       the threshold level.
@@ -350,6 +355,7 @@ def compute_one_abrpresto_summary(
   except IOError:
     return None
 
+  # Now do the preprocessing that ABRPresto paper does.
   good_df = abrpresto_bandpass(good_df)
   # print(f'Computing {mouse_id}: Timepoint: {timepoint}, Ear: {ear}, Frequency: '
   #      f'{frequency}, Manual Threshold: {manual_threshold}')
@@ -531,7 +537,22 @@ def abrpresto_stats_by_level(mouse_data,
   return np.asarray(levels), means, stds
 
 
-def abrpresto_threshold(levels, means, criterion=0.3, plot=False):
+def fit_abrpresto_threshold(levels, means, criterion=0.3, plot=False):
+  """Given the mean correlations (across all 500 splits) of the ABRPresto 
+  correlations, fit a curve to the data and find the level at which the curve 
+  crosses the criterion.
+
+  Args:
+    levels: The sound levels (in dB) at which the ABRPresto correlations were 
+      computed.
+    means: The mean ABRPresto correlation at each level, averaged across all 
+      500 splits of the data.
+    criterion: The correlation threshold that we want to find the corresponding 
+      sound level for.  This is the same as the "covariance threshold" in the 
+      ABRPresto paper, which is set to 0.3 in their code and figures.
+    plot: Whether to plot the data and the fitted curve.
+  
+  """
   if np.all(means > criterion):
     return -np.inf
   elif np.all(means < -criterion):
@@ -560,12 +581,28 @@ def abrpresto_threshold(levels, means, criterion=0.3, plot=False):
     plt.plot(levels, means, 'o-', label='Data')
     plt.plot(levels, fit.compute(levels), '-', label=label)
     plt.axvline(min(max(np.min(levels)-10, level_threshold), 
-                    np.max(levels)+10), ls='--', label='Covariance Threshold')
+                    np.max(levels)+10), 
+                ls='--', 
+                label=f'Covariance Threshold ({level_threshold:.1f})')
     # plt.axhline(criterion, ls=':')
     plt.legend()
     plt.xlabel('Level (dB)')
     plt.ylabel('ABRPresto Correlation')
   return level_threshold
+
+
+def plot_abrpresto_result(result: ABRSummary) -> None:
+  levels = np.asarray(result.levels)
+  means = np.asarray(result.replication_means)
+  fit_abrpresto_threshold(levels, means, criterion=0.3, plot=True)
+  plt.axvline(result.manual_threshold, ls=':', 
+              label=f'Manual Threshold ({result.manual_threshold:.1f})')
+  plt.axvline(result.abrpresto_threshold, ls='-.', 
+              label=f'ABRPresto Threshold ({result.abrpresto_threshold:.1f})')
+  plt.xlabel('Level (dB)')
+  plt.ylabel('ABRPresto Correlation')
+  plt.legend()
+
   
 
 ##################  Main Program ##################
