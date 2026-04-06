@@ -243,6 +243,12 @@ def evaluate_thresholds(
 
 def combine_all_thresholds(manual_df: pd.DataFrame,
                            abrpresto_df: pd.DataFrame) -> List[Tuple]:
+  """Go through all the rows of the manual threshold data frame, and append the 
+  corresponding published ABRPresto threshold. Return a list of tuples, each 
+  tuple containing the identifying information for one experiment:
+    (mouse_id, timepoint, ear, frequency) and the two thresholds 
+    (manual and ABRPresto).
+  """
   all_manual_thresholds = []
   for index, row in manual_df.iterrows():
     mouse_id = row['id']
@@ -319,6 +325,25 @@ def compute_one_abrpresto_summary(
       standard deviation of these correlations across random splits of the data.  
       This is done for each level, and the resulting means and standard 
       deviations are stored in the ABRSummary object.
+
+  Arguments:
+    mouse_id: The ID of the mouse, which is used to identify the data on disk.
+    timepoint: The timepoint of the experiment, which is used to identify the 
+      data on disk.
+    ear: The ear of the experiment, which is used to identify the data on disk.
+    frequency: The frequency of the experiment, which is used to identify the 
+      data on disk and to compute the d-prime at that frequency.
+    manual_threshold: The manual threshold for this experiment, which is used to
+      compute the d-prime at that threshold.
+    abrpresto_threshold: The ABRPresto threshold for this experiment, which is 
+      used to compute the d-prime at that threshold.
+    basedir: The base directory where the data files are stored.
+    power_fit: A boolean indicating whether to use a power fit for the d-prime 
+      curve.
+  
+  Returns:
+    An ABRSummary object containing all the summary data for this experiment, or 
+    None if there was an error loading the data.
   """
   try:
     good_df = get_mouse_data(basedir, mouse_id, timepoint, ear)

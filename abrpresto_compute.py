@@ -1,3 +1,14 @@
+# Code to compute the published ABRPresto summaries in parallel, with error 
+# handling and intermediate caching.
+
+# The result is a dictionary, stored in JSON format on disk, with the following
+# structure:
+#   (mouse_id, timepoint, ear, frequency) -> ABRSummary dataclass
+# On disk, the keys are stored as strings in the format 
+#   'mouse_id_timepoint_ear_frequency' for JSON compatibility.]
+# While the ABRSummary dataclass is stored as a dictionary of its fields, which 
+# are converted back to the dataclass when loading.
+
 import multiprocessing as mp
 from dataclasses import dataclass, asdict
 import json
@@ -17,7 +28,7 @@ from abrpresto import ABRSummary, get_threshold_data
 # Define the error-handling wrapper function
 def compute_wrapper(args: tuple) -> tuple:
     """
-    Unpacks arguments, runs the routine, and catches any exceptions.
+    Unpacks arguments, runs the computation routine, and catches any exceptions.
     Returns: (Success_Boolean, Payload)
     """
     try:
@@ -63,7 +74,7 @@ def save_results_to_json(results_dict: Dict[str, ABRSummary], json_path: str):
 def filter_threshold_results(all_thresholds: List[tuple],  # All thresholds
                              results_dict: Dict[str, Dict] # Those already done
                              ) -> List[Tuple]:
-  """Filters the list of all thresholds to only remove those that haven't been 
+  """Filters the list of all thresholds keeping those that haven't been 
   processed yet."""
   assert isinstance(all_thresholds, list), f"Expected all_thresholds to be a list, got {type(all_thresholds)}"
   assert isinstance(results_dict, dict), f"Expected results_dict to be a dict, got {type(results_dict)}"
@@ -79,7 +90,8 @@ def filter_threshold_results(all_thresholds: List[tuple],  # All thresholds
   print(f"Filtered thresholds: {len(filtered_thresholds)} remaining, {skipped_rows} already processed.")
   return filtered_thresholds
 
-# basedir flag is defined in abrpresto.py, so it is aready defined and imported
+# The basedir flag (location of the data files) is defined in abrpresto.py, 
+# so it is aready defined and imported
 flags.DEFINE_integer('max_rows', 0, 
                      'Number of rows in original manual thresholds file.')
 flags.DEFINE_integer('num_workers', 0, 
@@ -101,25 +113,23 @@ def main(argv):
       manual_df=manual_df,
       abrpresto_df=abr_presto_df
   )
-  # Threshold data consists of: mouse_id, timepoint, ear, frequency,
-  #                             manual_threshold, abrpresto_threshold
+  # Threshold data is a list of tuples: mouse_id, timepoint, ear, frequency,
+  #                                     manual_threshold, abrpresto_threshold
   if FLAGS.max_rows > 0:
     print(f"Limiting to the first {FLAGS.max_rows} rows of the manual thresholds.")
     all_thresholds = all_thresholds[:FLAGS.max_rows]
 
   if True:
+    # Get existing results from disk, and filter the list of thresholds to only 
+    # those that haven't been processed yet.
     results_dict = load_results_from_json(FLAGS.output_path)
     all_thresholds = filter_threshold_results(all_thresholds, results_dict)
-  # except Exception as e:
-  #   print(f"Error loading existing results: {e}")
-  #   print("Proceeding with all thresholds without filtering.")
-  #   results_dict = {}
 
-  # Job input data
+  # Job input data, create a new list of tuples, appending the basedir and a 
+  # flag for whether to use the power fit to compute the threshold.
   tasks = [(*row[:6], FLAGS.basedir, True) for row in all_thresholds]
   total_tasks = len(tasks)
   save_interval = max(1, int(total_tasks * FLAGS.cache_percent / 100))  # Save every X% of tasks
-  num_workers = mp.cpu_count() - 1 or 1 
   num_workers = FLAGS.num_workers if FLAGS.num_workers > 0 else num_workers
   
   # List to keep track of failed tasks
