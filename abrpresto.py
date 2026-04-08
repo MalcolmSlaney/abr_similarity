@@ -553,6 +553,8 @@ def fit_abrpresto_threshold(levels, means, criterion=0.3, plot=False):
     plot: Whether to plot the data and the fitted curve.
   
   """
+  levels = np.asarray(levels)
+  means = np.asarray(means)
   if np.all(means > criterion):
     return -np.inf
   elif np.all(means < -criterion):
@@ -564,12 +566,14 @@ def fit_abrpresto_threshold(levels, means, criterion=0.3, plot=False):
   power_fit = FitQuadraticMonomialCurve(levels, means)
   power_rms = power_fit.rms_error(levels, means)
 
+  # Ensure 'fit' is always defined
+  fit = power_fit  # Default to power_fit
+  label = 'Power Fit'
+
   if sigmoid_rms < power_rms:
     fit = sigmoid_fit
     label = 'Sigmoid Fit'
-  elif sigmoid_rms > power_rms:
-    fit = power_fit
-    label = 'Power Fit'
+  # No need for an elif for sigmoid_rms > power_rms because fit is already defaulted to power_fit
 
   level_threshold = fit.inverse_compute(criterion)
   if level_threshold < np.min(levels):
