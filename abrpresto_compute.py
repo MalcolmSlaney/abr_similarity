@@ -136,12 +136,13 @@ def main(argv):
   failed_tasks = []
 
   print(f"Starting processing with {num_workers} workers for {len(tasks)} tasks.")
-  print(f"Will save partial results every {save_interval} tasks (5%).")
+  print(f"Will save partial results every {save_interval} tasks ({FLAGS.cache_percent}%).")
 
   with mp.Pool(processes=num_workers) as pool:
       result_iterator = pool.imap_unordered(compute_wrapper, tasks)
       
       # We wrap the iterator in enumerate(..., start=1) to count completed tasks
+      save_counter = 0
       for i, payload_tuple in enumerate(result_iterator, start=1):
           success, *payload = payload_tuple
           
@@ -158,9 +159,11 @@ def main(argv):
               print(f"[!] Task failed for {failed_key}: {error_msg}")
 
           # --- Check if we hit the 5% interval threshold ---
-          if i % save_interval == 0:
+          save_counter += 1
+          if save_counter >= save_interval:
               print(f"--> Checkpoint: Saving partial results ({i}/{total_tasks} complete)...")
               save_results_to_json(results_dict, FLAGS.output_path)
+              save_counter = 0  # Reset counter after saving
           sys.stdout.flush()  # Flush status messages so far
 
   # Final Output Summary
