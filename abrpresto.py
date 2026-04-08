@@ -557,7 +557,7 @@ def fit_abrpresto_threshold(levels, means, criterion=0.3, plot=False):
   means = np.asarray(means)
   if np.all(means > criterion):
     return -np.inf
-  elif np.all(means < -criterion):
+  elif np.all(means < criterion):
     return np.inf
 
   sigmoid_fit = FitSigmoidCurve(levels, means)
